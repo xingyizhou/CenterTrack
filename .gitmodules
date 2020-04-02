@@ -1,0 +1,14 @@
+[submodule "nuscenes-devkit"]
+	path = src/tools/nuscenes-devkit
+	url = https://github.com/nutonomy/nuscenes-devkit
+	branch = master
+
+[submodule "nuscenes-devkit-alpha02"]
+	path = src/tools/nuscenes-devkit-alpha02
+	url = https://github.com/nutonomy/nuscenes-devkit
+	branch = e2d8c4b331567dc0bc36271dc21cdef65970eb7e
+
+[submodule "DCN-v2"]
+	path = src/lib/model/networks/DCNv2
+	url = https://github.com/CharlesShang/DCNv2/
+	branch = master

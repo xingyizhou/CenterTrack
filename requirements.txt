@@ -1,0 +1,11 @@
+opencv-python
+Cython
+numba
+progress
+matplotlib
+easydict
+scipy
+pyquaternion
+nuscenes-devkit
+pyyaml
+motmetrics
