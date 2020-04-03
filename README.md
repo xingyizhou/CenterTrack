@@ -1,15 +1,15 @@
 # Tracking Objects as Points
 Simultaneous object detection and tracking using center points:
 ![](readme/fig2.png)
-> [**Tracking Objects as Points**](http://arxiv.org/abs/xxxx.xxxxx),            
+> [**Tracking Objects as Points**](http://arxiv.org/abs/2004.01177),            
 > Xingyi Zhou, Vladlen Koltun, Philipp Kr&auml;henb&uuml;hl,        
-> *arXiv technical report ([arXiv xxxx.xxxxx](http://arxiv.org/abs/xxxx.xxxxx))*  
+> *arXiv technical report ([arXiv 2004.01177](http://arxiv.org/abs/2004.01177))*  
 
 
     @article{zhou2020tracking,
       title={Tracking Objects as Points},
       author={Zhou, Xingyi and Koltun, Vladlen and Kr{\"a}henb{\"u}hl, Philipp},
-      journal={arXiv:xxxx.xxxxx},
+      journal={arXiv:2004.01177},
       year={2020}
     }
 
