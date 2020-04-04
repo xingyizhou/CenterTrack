@@ -15,7 +15,7 @@ import torch.utils.data as data
 
 from utils.image import flip, color_aug
 from utils.image import get_affine_transform, affine_transform
-from utils.image import gaussian_radius, draw_umich_gaussian, simple_radius
+from utils.image import gaussian_radius, draw_umich_gaussian
 import copy
 
 class GenericDataset(data.Dataset):
@@ -221,11 +221,8 @@ class GenericDataset(data.Dataset):
       h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
       max_rad = 1
       if (h > 0 and w > 0):
-        if self.opt.simple_radius > 0:
-          radius = int(simple_radius(h, w, min_overlap=self.opt.simple_radius))
-        else:
-          radius = gaussian_radius((math.ceil(h), math.ceil(w)))
-          radius = max(0, int(radius)) 
+        radius = gaussian_radius((math.ceil(h), math.ceil(w)))
+        radius = max(0, int(radius)) 
         max_rad = max(max_rad, radius)
         ct = np.array(
           [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
@@ -380,8 +377,7 @@ class GenericDataset(data.Dataset):
 
 
   def _ignore_region(self, region, ignore_val=1):
-    if not self.opt.cont_fast_focal_loss:
-      np.maximum(region, ignore_val, out=region)
+    np.maximum(region, ignore_val, out=region)
 
 
   def _mask_ignore_or_crowd(self, ret, cls_id, bbox):

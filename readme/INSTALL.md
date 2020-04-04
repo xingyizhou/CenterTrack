@@ -48,7 +48,7 @@ After installing Anaconda:
 5. Compile deformable convolutional (from [DCNv2](https://github.com/CharlesShang/DCNv2/)).
 
     ~~~
-    cd $CenterTrack_ROOT/src/lib/models/networks/
+    cd $CenterTrack_ROOT/src/lib/model/networks/
     # git clone https://github.com/CharlesShang/DCNv2/ # clone if it is not automatically downloaded by `--recursive`.
     cd DCNv2
     ./make.sh

@@ -15,7 +15,6 @@ from model.losses import BinRotLoss, WeightedBCELoss
 from model.decode import generic_decode
 from model.utils import _sigmoid, flip_tensor, flip_lr_off, flip_lr
 from utils.debugger import Debugger
-from utils.oracle_utils import gen_oracle_map
 from utils.post_process import generic_post_process
 
 class GenericLoss(torch.nn.Module):
@@ -45,7 +44,6 @@ class GenericLoss(torch.nn.Module):
     for s in range(opt.num_stacks):
       output = outputs[s]
       output = self._sigmoid_output(output)
-      output = self._update_oracle(output, batch, opt)
 
       if 'hm' in output:
         losses['hm'] += self.crit(

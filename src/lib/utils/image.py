@@ -125,10 +125,6 @@ def gaussian_radius(det_size, min_overlap=0.7):
   return min(r1, r2, r3)
 
 
-def simple_radius(h, w, min_overlap=0.5):
-  return (h * w) ** 0.5 * (1 - min_overlap) / (1 + min_overlap)
-
-
 # @numba.jit(nopython=True, nogil=True)
 def gaussian2D(shape, sigma=1):
     m, n = [(ss - 1.) / 2. for ss in shape]
