@@ -22,31 +22,16 @@ class MOT(GenericDataset):
     print('Using MOT {} {}'.format(self.year, self.dataset_version))
     data_dir = os.path.join(opt.data_dir, 'mot{}'.format(self.year))
 
-    if opt.dataset_version == '17':
-      ann_file = '{}.json'.format(split)
-    elif opt.dataset_version == '16':
-      ann_file = '{}_half.json'.format(split)
-    elif opt.dataset_version == '16test':
-      ann_file = 'test.json'
-    elif opt.dataset_version in ['17trainval', '17test']:
-      ann_file = '{}.json'.format('trainval' if split == 'train' else \
-        'test' if self.dataset_version == '17test' else 'trainval')
-    elif opt.dataset_version == '17half':
-      ann_file = '{}.json'.format(
-        'train_half' if split == 'train' else 'val_half')
+    if opt.dataset_version in ['17trainval', '17test']:
+      ann_file = '{}.json'.format('train' if split == 'train' else \
+        'test')
     elif opt.dataset_version == '17halftrain':
       ann_file = '{}.json'.format('train_half')
     elif opt.dataset_version == '17halfval':
       ann_file = '{}.json'.format('val_half')
-    else:
-      data_dir = os.path.join(opt.data_dir, 'mot15')
     img_dir = os.path.join(data_dir, '{}'.format(
-      'test' if 'test' in self.dataset_version else 'trainval'))
+      'test' if 'test' in self.dataset_version else 'train'))
     
-    if opt.dataset_version in ['17test_all', '17trainval_all']:
-      data_dir = os.path.join(opt.data_dir, 'mot17')
-      ann_file = '{}.json'.format(opt.dataset_version[2:])
-      img_dir = os.path.join(data_dir, '{}'.format(opt.dataset_version[2:]))
     print('ann_file', ann_file)
     ann_path = os.path.join(data_dir, 'annotations', ann_file)
 
