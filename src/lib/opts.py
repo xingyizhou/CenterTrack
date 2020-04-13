@@ -177,6 +177,9 @@ class opts(object):
     self.parser.add_argument('--not_rand_crop', action='store_true',
                              help='not use the random crop data augmentation'
                                   'from CornerNet.')
+    self.parser.add_argument('--not_max_crop', action='store_true',
+                             help='used when the training dataset has'
+                                  'inbalanced aspect ratios.')
     self.parser.add_argument('--shift', type=float, default=0,
                              help='when not using random crop, 0.1'
                                   'apply shift augmentation.')
@@ -242,6 +245,10 @@ class opts(object):
     self.parser.add_argument('--nuscenes_att_weight', type=float, default=1)
     self.parser.add_argument('--velocity', action='store_true')
     self.parser.add_argument('--velocity_weight', type=float, default=1)
+
+    # custom dataset
+    self.parser.add_argument('--custom_dataset_img_path', default='')
+    self.parser.add_argument('--custom_dataset_ann_path', default='')
 
   def parse(self, args=''):
     if args == '':

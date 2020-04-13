@@ -116,19 +116,28 @@ import sys
 CENTERTRACK_PATH = /path/to/CenterTrack/src/lib/
 sys.path.insert(0, CENTERTRACK_PATH)
 
-from detectors.detector_factory import detector_factory
+from detector Detector
 from opts import opts
 
 MODEL_PATH = /path/to/model
 TASK = 'tracking' # or 'tracking,multi_pose' for pose tracking and 'tracking,ddd' for monocular 3d tracking
 opt = opts().init('{} --load_model {}'.format(TASK, MODEL_PATH).split(' '))
-detector = detector_factory[opt.task](opt)
+detector = Detector(opt)
 
 images = ['''image read from open cv or from a video''']
 for img in images:
   ret = detector.run(img)['results']
 ~~~
 Each `ret` will be a list dict: `[{'bbox': [x1, y1, x2, y2], 'tracking_id': id, ...}]`
+
+## Training on custom dataset
+
+If you want to train CenterTrack on your own dataset, you can use `--dataset custom` and manually specify the annotation file, image path, input resolutions, and number of categories. You still need to create the annotation files in COCO format (referring to the many `convert_X_to_coco.py` examples in `tools`). For example, you can use the following command to train on our [mot17 experiment](experiments/mot17_half_sc.sh) without using the pre-defined mot dataset file:
+
+~~~
+python main.py tracking --exp_id mot17_half_sc --dataset custom --custom_dataset_ann_path ../data/mot17/annotations/train_half.json --custom_dataset_img_path ../data/mot17/train/ --input_h 544 --input_w 960 --num_classes 1 --pre_hm --ltrb_amodal --same_aug --hm_disturb 0.05 --lost_disturb 0.4 --fp_disturb 0.1 --gpus 0,1
+
+~~~
 
 ## Benchmark Evaluation and Training
 

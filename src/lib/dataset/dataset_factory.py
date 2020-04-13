@@ -8,7 +8,6 @@ import numpy as np
 import json
 import os
 
-from .generic_dataset import GenericDataset
 from .datasets.coco import COCO
 from .datasets.kitti import KITTI
 from .datasets.coco_hp import COCOHP
@@ -16,10 +15,10 @@ from .datasets.mot import MOT
 from .datasets.nuscenes import nuScenes
 from .datasets.crowdhuman import CrowdHuman
 from .datasets.kitti_tracking import KITTITracking
-
+from .datasets.custom_dataset import CustomDataset
 
 dataset_factory = {
-  'custom': GenericDataset,
+  'custom': CustomDataset,
   'coco': COCO,
   'kitti': KITTI,
   'coco_hp': COCOHP,

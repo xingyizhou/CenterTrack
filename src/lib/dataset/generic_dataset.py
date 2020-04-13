@@ -79,7 +79,8 @@ class GenericDataset(data.Dataset):
 
     height, width = img.shape[0], img.shape[1]
     c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)
-    s = max(img.shape[0], img.shape[1]) * 1.0
+    s = max(img.shape[0], img.shape[1]) * 1.0 if not self.opt.not_max_crop \
+      else np.array([img.shape[1], img.shape[0]], np.float32)
     aug_s, rot, flipped = 1, 0, 0
     if self.split == 'train':
       c, aug_s, rot = self._get_aug_param(c, s, width, height)
@@ -270,6 +271,8 @@ class GenericDataset(data.Dataset):
     else:
       sf = self.opt.scale
       cf = self.opt.shift
+      if type(s) == float:
+        s = [s, s]
       c[0] += s * np.clip(np.random.randn()*cf, -2*cf, 2*cf)
       c[1] += s * np.clip(np.random.randn()*cf, -2*cf, 2*cf)
       aug_s = np.clip(np.random.randn()*sf + 1, 1 - sf, 1 + sf)
