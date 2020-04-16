@@ -116,7 +116,7 @@ import sys
 CENTERTRACK_PATH = /path/to/CenterTrack/src/lib/
 sys.path.insert(0, CENTERTRACK_PATH)
 
-from detector Detector
+from detector import Detector
 from opts import opts
 
 MODEL_PATH = /path/to/model
