@@ -172,6 +172,7 @@ class opts(object):
     self.parser.add_argument('--kitti_split', default='3dop',
                              help='different validation split for kitti: '
                                   '3dop | subcnn')
+    self.parser.add_argument('--test_focal_length', type=int, default=-1)
 
     # dataset
     self.parser.add_argument('--not_rand_crop', action='store_true',

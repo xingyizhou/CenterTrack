@@ -42,7 +42,8 @@ class Detector(object):
     self.std = np.array(
       self.trained_dataset.std, dtype=np.float32).reshape(1, 1, 3)
     self.pause = not opt.no_pause
-    self.rest_focal_length = self.trained_dataset.rest_focal_length
+    self.rest_focal_length = self.trained_dataset.rest_focal_length \
+      if self.opt.test_focal_length < 0 else self.opt.test_focal_length
     self.flip_idx = self.trained_dataset.flip_idx
     self.cnt = 0
     self.pre_images = None

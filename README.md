@@ -74,8 +74,13 @@ We provide a video clip from the [nuScenes dataset](https://www.nuscenes.org/?ex
 To test monocular 3D tracking on this video, run
 
 ~~~
-python demo.py tracking,ddd --load_model ../models/nuScenes_3Dtracking.pth --dataset nuscenes --pre_hm --track_thresh 0.1 --demo ../videos/nuscenes_mini.mp4
+python demo.py tracking,ddd --load_model ../models/nuScenes_3Dtracking.pth --dataset nuscenes --pre_hm --track_thresh 0.1 --demo ../videos/nuscenes_mini.mp4 --test_focal_length 633
 ~~~
+
+You will need to specify `test_focal_length` for monocular 3D tracking demo to convert the image coordinate system back to 3D.
+The value `633` is half of a typical focal length (`~1266`) in nuScenes dataset in input resolution `1600x900`.
+The mini demo video is in an input resolution of `800x448`, so we need to use a half focal length.
+You don't need to set the `test_focal_length` when testing on the original nuScenes data.
 
 If setup correctly, you will see an output video like:
 
