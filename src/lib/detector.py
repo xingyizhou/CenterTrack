@@ -57,6 +57,8 @@ class Detector(object):
     merge_time, track_time, tot_time, display_time = 0, 0, 0, 0
     self.debugger.clear()
     start_time = time.time()
+
+    # read image
     pre_processed = False
     if isinstance(image_or_path_or_tensor, np.ndarray):
       image = image_or_path_or_tensor
@@ -71,10 +73,12 @@ class Detector(object):
     load_time += (loaded_time - start_time)
     
     detections = []
+
+    # for multi-scale testing
     for scale in self.opt.test_scales:
       scale_start_time = time.time()
       if not pre_processed:
-        # not prefetch testing
+        # not prefetch testing or demo
         images, meta = self.pre_process(image, scale, meta)
       else:
         # prefetch testing
@@ -85,45 +89,61 @@ class Detector(object):
           meta['pre_dets'] = pre_processed_images['meta']['pre_dets']
         if 'cur_dets' in pre_processed_images['meta']:
           meta['cur_dets'] = pre_processed_images['meta']['cur_dets']
+      
       images = images.to(self.opt.device, non_blocking=self.opt.non_block_test)
+
+      # initializing tracker
       pre_hms, pre_inds = None, None
       if self.opt.tracking:
+        # initialize the first frame
         if self.pre_images is None:
           print('Initialize tracking!')
           self.pre_images = images
-          self.tracker.init_track(meta['pre_dets'])
+          self.tracker.init_track(
+            meta['pre_dets'] if 'pre_dets' in meta else [])
         if self.opt.pre_hm:
+          # render input heatmap from tracker status
+          # pre_inds is not used in the current version.
+          # We used pre_inds for learning an offset from previous image to
+          # the current image.
           pre_hms, pre_inds = self._get_additional_inputs(
             self.tracker.tracks, meta, with_hm=not self.opt.zero_pre_hm)
       
       pre_process_time = time.time()
       pre_time += pre_process_time - scale_start_time
       
+      # run the network
+      # output: the output feature maps, only used for visualizing
+      # dets: output tensors after extracting peaks
       output, dets, forward_time = self.process(
         images, self.pre_images, pre_hms, pre_inds, return_time=True)
       net_time += forward_time - pre_process_time
       decode_time = time.time()
       dec_time += decode_time - forward_time
       
-      dets = self.post_process(dets, meta, scale)
+      # convert the cropped and 4x downsampled output coordinate system
+      # back to the input image coordinate system
+      result = self.post_process(dets, meta, scale)
       post_process_time = time.time()
       post_time += post_process_time - decode_time
 
-      detections.append(dets)
-
+      detections.append(result)
       if self.opt.debug >= 2:
         self.debug(
-          self.debugger, images, dets, output, scale, 
+          self.debugger, images, result, output, scale, 
           pre_images=self.pre_images if not self.opt.no_pre_img else None, 
           pre_hms=pre_hms)
 
+    # merge multi-scale testing results
     results = self.merge_outputs(detections)
     torch.cuda.synchronize()
     end_time = time.time()
     merge_time += end_time - post_process_time
     
     if self.opt.tracking:
+      # public detection mode in MOT challenge
       public_det = meta['cur_dets'] if self.opt.public_det else None
+      # add tracking id to results
       results = self.tracker.step(results, public_det)
       self.pre_images = images
 
@@ -138,12 +158,14 @@ class Detector(object):
     show_results_time = time.time()
     display_time += show_results_time - end_time
     
+    # return results and run time
     ret = {'results': results, 'tot': tot_time, 'load': load_time,
             'pre': pre_time, 'net': net_time, 'dec': dec_time,
             'post': post_time, 'merge': merge_time, 'track': track_time,
             'display': display_time}
     if self.opt.save_video:
       try:
+        # return debug image for saving video
         ret.update({'generic': self.debugger.imgs['generic']})
       except:
         pass
@@ -151,6 +173,11 @@ class Detector(object):
 
 
   def _transform_scale(self, image, scale=1):
+    '''
+      Prepare input image in different testing modes.
+        Currently support: fix short size/ center crop to a fixed size/ 
+        keep original resolution but pad to a multiplication of 32
+    '''
     height, width = image.shape[0:2]
     new_height = int(height * scale)
     new_width  = int(width * scale)
@@ -178,6 +205,10 @@ class Detector(object):
 
 
   def pre_process(self, image, scale, input_meta={}):
+    '''
+    Crop, resize, and normalize image. Gather meta data for post processing 
+      and tracking.
+    '''
     resized_image, c, s, inp_width, inp_height, height, width = \
       self._transform_scale(image)
     trans_input = get_affine_transform(c, s, 0, [inp_width, inp_height])
@@ -209,6 +240,9 @@ class Detector(object):
 
 
   def _trans_bbox(self, bbox, trans, width, height):
+    '''
+    Transform bounding boxes according to image crop.
+    '''
     bbox = np.array(copy.deepcopy(bbox), dtype=np.float32)
     bbox[:2] = affine_transform(bbox[:2], trans)
     bbox[2:] = affine_transform(bbox[2:], trans)
@@ -218,6 +252,9 @@ class Detector(object):
 
 
   def _get_additional_inputs(self, dets, meta, with_hm=True):
+    '''
+    Render input heatmap from previous trackings.
+    '''
     trans_input, trans_output = meta['trans_input'], meta['trans_output']
     inp_width, inp_height = meta['inp_width'], meta['inp_height']
     out_width, out_height = meta['out_width'], meta['out_height']
