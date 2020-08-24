@@ -262,7 +262,7 @@ class Detector(object):
 
     output_inds = []
     for det in dets:
-      if det['score'] < self.opt.pre_thresh:
+      if det['score'] < self.opt.pre_thresh or det['active'] == 0:
         continue
       bbox = self._trans_bbox(det['bbox'], trans_input, inp_width, inp_height)
       bbox_out = self._trans_bbox(
@@ -408,6 +408,8 @@ class Detector(object):
     
     for j in range(len(results)):
       if results[j]['score'] > self.opt.vis_thresh:
+        if 'active' in results[j] and results[j]['active'] == 0:
+          continue
         item = results[j]
         if ('bbox' in item):
           sc = item['score'] if self.opt.demo == '' or \

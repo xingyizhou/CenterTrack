@@ -110,20 +110,19 @@ class Tracker(object):
           track['active'] =  1
           ret.append(track)
     
-    # Never used
     for i in unmatched_tracks:
       track = self.tracks[i]
       if track['age'] < self.opt.max_age:
         track['age'] += 1
-        track['active'] = 1 # 0
+        track['active'] = 0
         bbox = track['bbox']
         ct = track['ct']
+        v = [0, 0]
         track['bbox'] = [
           bbox[0] + v[0], bbox[1] + v[1],
           bbox[2] + v[0], bbox[3] + v[1]]
         track['ct'] = [ct[0] + v[0], ct[1] + v[1]]
         ret.append(track)
-    self.tracks = ret
     return ret
 
 def greedy_assignment(dist):
