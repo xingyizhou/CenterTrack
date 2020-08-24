@@ -9,7 +9,7 @@ Simultaneous object detection and tracking using center points:
     @article{zhou2020tracking,
       title={Tracking Objects as Points},
       author={Zhou, Xingyi and Koltun, Vladlen and Kr{\"a}henb{\"u}hl, Philipp},
-      journal={arXiv:2004.01177},
+      journal={ECCV},
       year={2020}
     }
 
@@ -35,8 +35,8 @@ Tracking has traditionally been the art of following interest points through spa
 
 | Detection    |  MOTA     | FPS    |
 |--------------|-----------|--------|
-|Public        | 61.4      |  22    |
-|Private       | 67.3      |  22    |
+|Public        | 61.5      |  22    |
+|Private       | 67.8      |  22    |
 
 ### 2D vehicle tracking on KITTI test set (with flip test)
 
@@ -91,6 +91,12 @@ Similarly, for 80-category tracking on images/ video, run:
 
 ~~~
 python demo.py tracking --load_model ../models/coco_tracking.pth --demo /path/to/image/or/folder/or/video 
+~~~
+
+If you want to test with person tracking models, you need to add `--num_class 1`:
+
+~~~
+python demo.py tracking --load_model ../models/mot17_half.pth --num_class 1 --demo /path/to/image/or/folder/or/video 
 ~~~
 
 For webcam demo, run     
