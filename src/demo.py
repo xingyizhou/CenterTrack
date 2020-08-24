@@ -44,8 +44,10 @@ def demo(opt):
   # Initialize output video
   out = None
   out_name = opt.demo[opt.demo.rfind('/') + 1:]
+  print('out_name', out_name)
   if opt.save_video:
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    # fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    fourcc = cv2.VideoWriter_fourcc(*'H264')
     out = cv2.VideoWriter('../results/{}.mp4'.format(
       opt.exp_id + '_' + out_name),fourcc, opt.save_framerate, (
         opt.video_w, opt.video_h))

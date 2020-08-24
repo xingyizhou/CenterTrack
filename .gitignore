@@ -1,3 +1,4 @@
+videos/
 *.zip
 centernet_models/*
 centertrack_models/*

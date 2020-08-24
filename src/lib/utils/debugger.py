@@ -46,6 +46,7 @@ class Debugger(object):
       (128, 0, 0), (0, 0, 128), (128, 0, 0), (0, 0, 128),
       (128, 0, 0), (0, 0, 128)]
     self.track_color = {}
+    self.trace = {}
     # print('names', self.names)
     self.down_ratio=opt.down_ratio
     # for bird view
@@ -118,6 +119,34 @@ class Debugger(object):
 
   def add_coco_bbox(self, bbox, cat, conf=1, show_txt=True, 
     no_bbox=False, img_id='default'): 
+    if self.opt.show_track_color:
+      track_id = int(conf)
+      if not (track_id in self.track_color):
+        self.track_color[track_id] = self._get_rand_color()
+      c = self.track_color[track_id]
+      # thickness = 4
+      # fontsize = 0.8
+    if self.opt.only_show_dots:
+      ct = (int((bbox[0] + bbox[2]) / 2), int((bbox[1] + bbox[3]) / 2))
+      cv2.circle(
+        self.imgs[img_id], ct ,8, c, -1, lineType=cv2.LINE_AA)
+      if self.opt.show_trace:
+        if track_id in self.trace:
+          trace = self.trace[track_id]
+          cnt = 0
+          t_pre = ct
+          for t in trace[::-1]:
+            cv2.circle(
+              self.imgs[img_id], t ,6-cnt*2, c, -1, lineType=cv2.LINE_AA)
+            cv2.line(self.imgs[img_id], t, t_pre, c, max(6-cnt*2, 1), lineType=cv2.LINE_AA)
+            t_pre = t
+            cnt = cnt + 1
+            if cnt >= 3:
+              break
+          self.trace[track_id].append(ct)
+        else:
+          self.trace[track_id] = [ct]
+      return
     bbox = np.array(bbox, dtype=np.int32)
     cat = int(cat)
     c = self.colors[cat][0][0].tolist()
@@ -132,13 +161,6 @@ class Debugger(object):
       txt = '{}{:.1f}'.format(self.names[cat], conf)
     thickness = 2
     fontsize = 0.8 if self.opt.qualitative else 0.5
-    if self.opt.show_track_color:
-      track_id = int(conf)
-      if not (track_id in self.track_color):
-        self.track_color[track_id] = self._get_rand_color()
-      c = self.track_color[track_id]
-      # thickness = 4
-      # fontsize = 0.8
     if not self.opt.not_show_bbox:
       font = cv2.FONT_HERSHEY_SIMPLEX
       cat_size = cv2.getTextSize(txt, font, fontsize, thickness)[0]
@@ -261,6 +283,8 @@ class Debugger(object):
   def add_3d_detection(
     self, image_or_path, flipped, dets, calib, show_txt=False, 
     vis_thresh=0.3, img_id='det'):
+    if self.opt.only_show_dots:
+      return
     if isinstance(image_or_path, np.ndarray):
       self.imgs[img_id] = image_or_path.copy()
     else: 
@@ -298,7 +322,8 @@ class Debugger(object):
             sc = int(item['tracking_id']) if self.opt.show_track_color else \
               item['score']
             self.add_coco_bbox(
-              bbox, item['class'] - 1, sc, no_bbox=True, img_id=img_id)
+              bbox, item['class'] - 1, sc, show_txt=not self.opt.not_show_txt,
+              no_bbox=True, img_id=img_id)
           if self.opt.show_track_color:
             self.add_arrow([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], 
               item['tracking'], img_id=img_id)
@@ -389,6 +414,8 @@ class Debugger(object):
     self.imgs[img_id] = bird_view
 
   def add_arrow(self, st, ed, img_id, c=(255, 0, 255), w=2):
+    if self.opt.only_show_dots:
+      return
     cv2.arrowedLine(
       self.imgs[img_id], (int(st[0]), int(st[1])), 
       (int(ed[0] + st[0]), int(ed[1] + st[1])), c, 2,

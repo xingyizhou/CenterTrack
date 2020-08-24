@@ -72,8 +72,11 @@ class opts(object):
     self.parser.add_argument('--show_track_color', action='store_true')
     self.parser.add_argument('--not_show_bbox', action='store_true')
     self.parser.add_argument('--not_show_number', action='store_true')
+    self.parser.add_argument('--not_show_txt', action='store_true')
     self.parser.add_argument('--qualitative', action='store_true')
     self.parser.add_argument('--tango_color', action='store_true')
+    self.parser.add_argument('--only_show_dots', action='store_true')
+    self.parser.add_argument('--show_trace', action='store_true')
 
     # model
     self.parser.add_argument('--arch', default='dla_34', 
