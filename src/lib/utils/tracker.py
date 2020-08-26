@@ -123,6 +123,7 @@ class Tracker(object):
           bbox[2] + v[0], bbox[3] + v[1]]
         track['ct'] = [ct[0] + v[0], ct[1] + v[1]]
         ret.append(track)
+    self.tracks = ret
     return ret
 
 def greedy_assignment(dist):
