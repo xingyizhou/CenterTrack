@@ -7,7 +7,8 @@ RUN apt-get updateRUN DEBIAN_FRONTEND=noninteractive apt-get install -y t
 # Add sudo# RUN apt-get -y install sudo
 RUN apt-get install -y --no-install-recommends software-properties-common
 RUN add-apt-repository ppa:deadsnakes/ppa
-RUN apt updateRUN apt install -y --no-install-recommends python3.6
+RUN apt update
+RUN apt install -y --no-install-recommends python3.6
 
 # Default to python3RUN cd /usr/bin && ln -s python3.6 python
 RUN apt-get install -y --no-install-recommends \
