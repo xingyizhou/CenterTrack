@@ -65,7 +65,8 @@ RUN python3.6 -m pip install --use-feature=2020-resolver -U 'git+https://
 
 COPY . /centertrack
 
-WORKDIR /centertrack/src/lib/model/networks/DCNv2RUN ./make.sh
+WORKDIR /centertrack/src/lib/model/networks/DCNv2
+RUN ./make.sh
 
 WORKDIR /centertrack
 
