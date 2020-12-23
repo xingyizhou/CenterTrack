@@ -178,8 +178,8 @@ class GenericDataset(data.Dataset):
 
   def _load_pre_data(self, video_id, frame_id, sensor_id=1):
     img_infos = self.video_to_images[video_id]
-    # If training, random sample nearby frames as the "previoud" frame
-    # If testing, get the exact prevous frame
+    # If training, random sample nearby frames as the "previous" frame
+    # If testing, get the exact previous frame
     if 'train' in self.split:
       img_ids = [(img_info['id'], img_info['frame_id']) \
           for img_info in img_infos \
@@ -206,8 +206,8 @@ class GenericDataset(data.Dataset):
     hm_h, hm_w = self.opt.input_h, self.opt.input_w
     down_ratio = self.opt.down_ratio
     trans = trans_input
-    reutrn_hm = self.opt.pre_hm
-    pre_hm = np.zeros((1, hm_h, hm_w), dtype=np.float32) if reutrn_hm else None
+    return_hm = self.opt.pre_hm
+    pre_hm = np.zeros((1, hm_h, hm_w), dtype=np.float32) if return_hm else None
     pre_cts, track_ids = [], []
     for ann in anns:
       cls_id = int(self.cat_ids[ann['category_id']])
@@ -241,10 +241,10 @@ class GenericDataset(data.Dataset):
           pre_cts.append(ct0 / down_ratio)
 
         track_ids.append(ann['track_id'] if 'track_id' in ann else -1)
-        if reutrn_hm:
+        if return_hm:
           draw_umich_gaussian(pre_hm[0], ct_int, radius, k=conf)
 
-        if np.random.random() < self.opt.fp_disturb and reutrn_hm:
+        if np.random.random() < self.opt.fp_disturb and return_hm:
           ct2 = ct0.copy()
           # Hard code heatmap disturb ratio, haven't tried other numbers.
           ct2[0] = ct2[0] + np.random.randn() * 0.05 * w
