@@ -190,3 +190,53 @@ def compute_rot_loss(output, target_bin, target_res, mask):
           valid_output2[:, 7], torch.cos(valid_target_res2[:, 1]))
         loss_res += loss_sin2 + loss_cos2
     return loss_bin1 + loss_bin2 + loss_res
+
+
+class SegDiceLoss(nn.Module):
+    def __init__(self,feat_channel):
+        super(SegDiceLoss, self).__init__()
+        self.feat_channel=feat_channel
+
+    def dice_loss(self, input, target):
+        smooth = 1.
+        iflat = input.contiguous().view(-1)
+        tflat = target.contiguous().view(-1)
+        intersection = (iflat * tflat).sum()
+        return 1 - ((2. * intersection + smooth) /((iflat*iflat).sum() + (tflat*tflat).sum() + smooth))
+        
+    def forward(self, seg_feat, conv_weight, mask,ind, target):
+        mask_loss=0.
+        batch_size = seg_feat.size(0)
+        weight = _tranpose_and_gather_feat(conv_weight, ind)
+        h,w = seg_feat.size(-2),seg_feat.size(-1)
+        x,y = ind%w,ind/w
+        x_range = torch.arange(w).float().to(device=seg_feat.device)
+        y_range = torch.arange(h).float().to(device=seg_feat.device)
+        y_grid, x_grid = torch.meshgrid([y_range, x_range])
+        for i in range(batch_size):
+            num_obj = target[i].size(0)
+            conv1w,conv1b,conv2w,conv2b,conv3w,conv3b= \
+                torch.split(weight[i,:num_obj],[(self.feat_channel+2)*self.feat_channel,self.feat_channel,
+                                          self.feat_channel**2,self.feat_channel,
+                                          self.feat_channel,1],dim=-1)
+            y_rel_coord = (y_grid[None,None] - y[i,:num_obj].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).float())/128.
+            x_rel_coord = (x_grid[None,None] - x[i,:num_obj].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).float())/128.
+            feat = seg_feat[i][None].repeat([num_obj,1,1,1])
+            feat = torch.cat([feat,x_rel_coord, y_rel_coord],dim=1).view(1,-1,h,w)
+
+            conv1w=conv1w.contiguous().view(-1,self.feat_channel+2,1,1)
+            conv1b=conv1b.contiguous().flatten()
+            feat = F.conv2d(feat,conv1w,conv1b,groups=num_obj).relu()
+
+            conv2w=conv2w.contiguous().view(-1,self.feat_channel,1,1)
+            conv2b=conv2b.contiguous().flatten()
+            feat = F.conv2d(feat,conv2w,conv2b,groups=num_obj).relu()
+
+            conv3w=conv3w.contiguous().view(-1,self.feat_channel,1,1)
+            conv3b=conv3b.contiguous().flatten()
+            feat = F.conv2d(feat,conv3w,conv3b,groups=num_obj).sigmoid().squeeze()
+
+            true_mask = mask[i,:num_obj,None,None].float()
+            mask_loss+=self.dice_loss(feat*true_mask,target[i]*true_mask)
+
+        return mask_loss/batch_size

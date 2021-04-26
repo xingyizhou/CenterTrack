@@ -10,6 +10,7 @@ import os
 from collections import defaultdict
 
 import pycocotools.coco as coco
+import pycocotools.mask as mask_utils
 import torch
 import torch.utils.data as data
 
@@ -134,14 +135,21 @@ class GenericDataset(data.Dataset):
       cls_id = int(self.cat_ids[ann['category_id']])
       if cls_id > self.opt.num_classes or cls_id <= -999:
         continue
+      if 'bbox' not in ann.keys():
+        ann['bbox'] = mask_utils.toBbox(ann['segmentation'])
       bbox, bbox_amodal = self._get_bbox_output(
         ann['bbox'], trans_output, height, width)
       if cls_id <= 0 or ('iscrowd' in ann and ann['iscrowd'] > 0):
         self._mask_ignore_or_crowd(ret, cls_id, bbox)
         continue
+      seg_mask = None
+      if 'segmentation' in ann.keys():
+        seg_mask = self._get_seg_mask_output(
+           ann['segmentation'], trans_output, (opt.output_w, opt.output_h), flipped)
+
       self._add_instance(
         ret, gt_det, k, cls_id, bbox, bbox_amodal, ann, trans_output, aug_s, 
-        calib, pre_cts, track_ids)
+        calib, seg_mask, pre_cts, track_ids)
 
     if self.opt.debug > 0:
       gt_det = self._format_gt_det(gt_det)
@@ -209,11 +217,13 @@ class GenericDataset(data.Dataset):
     reutrn_hm = self.opt.pre_hm
     pre_hm = np.zeros((1, hm_h, hm_w), dtype=np.float32) if reutrn_hm else None
     pre_cts, track_ids = [], []
-    for ann in anns:
+    for i, ann in enumerate(anns):
       cls_id = int(self.cat_ids[ann['category_id']])
       if cls_id > self.opt.num_classes or cls_id <= -99 or \
          ('iscrowd' in ann and ann['iscrowd'] > 0):
         continue
+      if 'bbox' not in anns[i].keys():
+        ann = mask_utils.toBbox(ann['segmentation'])
       bbox = self._coco_box_to_bbox(ann['bbox'])
       bbox[:2] = affine_transform(bbox[:2], trans)
       bbox[2:] = affine_transform(bbox[2:], trans)
@@ -288,6 +298,10 @@ class GenericDataset(data.Dataset):
 
   def _flip_anns(self, anns, width):
     for k in range(len(anns)):
+
+      if 'bbox' not in anns[k].keys():
+        anns[k]['bbox'] = mask_utils.toBbox(anns[k]['segmentation'])
+
       bbox = anns[k]['bbox']
       anns[k]['bbox'] = [
         width - bbox[0] - 1 - bbox[2], bbox[1], bbox[2], bbox[3]]
@@ -335,6 +349,9 @@ class GenericDataset(data.Dataset):
     ret['ind'] = np.zeros((max_objs), dtype=np.int64)
     ret['cat'] = np.zeros((max_objs), dtype=np.int64)
     ret['mask'] = np.zeros((max_objs), dtype=np.float32)
+    if 'seg' in self.opt.task:
+      ret['seg_mask'] = np.zeros(
+      (max_objs, self.opt.output_h, self.opt.output_w), np.float32)
 
     regression_head_dims = {
       'reg': 2, 'wh': 2, 'tracking': 2, 'ltrb': 4, 'ltrb_amodal': 4, 
@@ -403,7 +420,14 @@ class GenericDataset(data.Dataset):
                     dtype=np.float32)
     return bbox
 
+  def _get_seg_mask_output(self, segmentation, trans_output, output_w_h, flipped=False):
+    seg_mask = mask_utils.decode(segmentation)
+    if flipped:
+      seg_mask = seg_mask[:, ::-1]
+    seg_mask = cv2.warpAffine(seg_mask, trans_output, 
+                    output_w_h, flags=cv2.INTER_NEAREST)
 
+    return seg_mask
   def _get_bbox_output(self, bbox, trans_output, height, width):
     bbox = self._coco_box_to_bbox(bbox).copy()
 
@@ -422,7 +446,7 @@ class GenericDataset(data.Dataset):
 
   def _add_instance(
     self, ret, gt_det, k, cls_id, bbox, bbox_amodal, ann, trans_output,
-    aug_s, calib, pre_cts=None, track_ids=None):
+    aug_s, calib, seg_mask=None, pre_cts=None, track_ids=None):
     h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
     if h <= 0 or w <= 0:
       return
@@ -456,6 +480,10 @@ class GenericDataset(data.Dataset):
         gt_det['tracking'].append(ret['tracking'][k])
       else:
         gt_det['tracking'].append(np.zeros(2, np.float32))
+    
+    if 'seg' in self.opt.task and seg_mask is not None:
+      ret['seg_mask'][k] = seg_mask
+
 
     if 'ltrb' in self.opt.heads:
       ret['ltrb'][k] = bbox[0] - ct_int[0], bbox[1] - ct_int[1], \

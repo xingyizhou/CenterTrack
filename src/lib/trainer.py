@@ -11,7 +11,7 @@ from model.data_parallel import DataParallel
 from utils.utils import AverageMeter
 
 from model.losses import FastFocalLoss, RegWeightedL1Loss
-from model.losses import BinRotLoss, WeightedBCELoss
+from model.losses import BinRotLoss, WeightedBCELoss, SegDiceLoss
 from model.decode import generic_decode
 from model.utils import _sigmoid, flip_tensor, flip_lr_off, flip_lr
 from utils.debugger import Debugger
@@ -26,6 +26,8 @@ class GenericLoss(torch.nn.Module):
       self.crit_rot = BinRotLoss()
     if 'nuscenes_att' in opt.heads:
       self.crit_nuscenes_att = WeightedBCELoss()
+    if 'seg' in opt.heads:
+      self.crit_seg = SegDiceLoss(opt.seg_feat_channel)
     self.opt = opt
 
   def _sigmoid_output(self, output):
@@ -49,6 +51,10 @@ class GenericLoss(torch.nn.Module):
         losses['hm'] += self.crit(
           output['hm'], batch['hm'], batch['ind'], 
           batch['mask'], batch['cat']) / opt.num_stacks
+      
+      if 'seg' in output:
+        losses['seg'] += self.crit_seg(output['seg'],output['conv_weight'],
+                                      batch['reg_mask'], batch['ind'], batch['seg_mask']) / opt.num_stacks
       
       regression_heads = [
         'reg', 'wh', 'tracking', 'ltrb', 'ltrb_amodal', 'hps', 
@@ -183,7 +189,7 @@ class Trainer(object):
   def _get_losses(self, opt):
     loss_order = ['hm', 'wh', 'reg', 'ltrb', 'hps', 'hm_hp', \
       'hp_offset', 'dep', 'dim', 'rot', 'amodel_offset', \
-      'ltrb_amodal', 'tracking', 'nuscenes_att', 'velocity']
+      'ltrb_amodal', 'tracking', 'nuscenes_att', 'velocity', 'seg']
     loss_states = ['tot'] + [k for k in loss_order if k in opt.heads]
     loss = GenericLoss(opt)
     return loss_states, loss

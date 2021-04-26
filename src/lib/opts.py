@@ -222,6 +222,11 @@ class opts(object):
     self.parser.add_argument('--hungarian', action='store_true')
     self.parser.add_argument('--max_age', type=int, default=-1)
 
+    # CondInst
+    self.parser.add_argument('--seg_feat_channel', default=8,type=int,
+                             help='.')
+    self.parser.add_argument('--seg_weight', default= 3., type=float,
+                             help='')
 
     # loss
     self.parser.add_argument('--tracking_weight', type=float, default=1)
@@ -345,6 +350,11 @@ class opts(object):
     if 'tracking' in opt.task:
       opt.heads.update({'tracking': 2})
 
+    if 'seg' in opt.task:
+      opt.heads.update({
+        'conv_weight': 2*opt.seg_feat_channel**2 + 5*opt.seg_feat_channel + 1,
+        'seg': opt.seg_feat_channel})
+
     if 'ddd' in opt.task:
       opt.heads.update({'dep': 1, 'rot': 8, 'dim': 3, 'amodel_offset': 2})
     
@@ -372,7 +382,9 @@ class opts(object):
                    'tracking': opt.tracking_weight,
                    'ltrb_amodal': opt.ltrb_amodal_weight,
                    'nuscenes_att': opt.nuscenes_att_weight,
-                   'velocity': opt.velocity_weight}
+                   'velocity': opt.velocity_weight,
+                   'seg': opt.seg_weight,
+                   'conv_weight': 0 }
     opt.weights = {head: weight_dict[head] for head in opt.heads}
     for head in opt.weights:
       if opt.weights[head] == 0:
