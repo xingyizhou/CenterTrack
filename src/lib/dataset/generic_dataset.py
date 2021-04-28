@@ -223,7 +223,7 @@ class GenericDataset(data.Dataset):
          ('iscrowd' in ann and ann['iscrowd'] > 0):
         continue
       if 'bbox' not in anns[i].keys():
-        ann = mask_utils.toBbox(ann['segmentation'])
+        ann['bbox'] = mask_utils.toBbox(ann['segmentation'])
       bbox = self._coco_box_to_bbox(ann['bbox'])
       bbox[:2] = affine_transform(bbox[:2], trans)
       bbox[2:] = affine_transform(bbox[2:], trans)

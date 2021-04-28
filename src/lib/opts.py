@@ -325,7 +325,9 @@ class opts(object):
     opt.exp_dir = os.path.join(opt.root_dir, 'exp', opt.task)
     opt.save_dir = os.path.join(opt.exp_dir, opt.exp_id)
     opt.debug_dir = os.path.join(opt.save_dir, 'debug')
-    
+    if not os.path.exists(opt.debug_dir):
+      os.makedirs(opt.debug_dir)
+
     if opt.resume and opt.load_model == '':
       opt.load_model = os.path.join(opt.save_dir, 'model_last.pth')
     return opt
@@ -352,8 +354,9 @@ class opts(object):
 
     if 'seg' in opt.task:
       opt.heads.update({
+        'seg': opt.seg_feat_channel,
         'conv_weight': 2*opt.seg_feat_channel**2 + 5*opt.seg_feat_channel + 1,
-        'seg': opt.seg_feat_channel})
+        })
 
     if 'ddd' in opt.task:
       opt.heads.update({'dep': 1, 'rot': 8, 'dim': 3, 'amodel_offset': 2})
@@ -384,7 +387,7 @@ class opts(object):
                    'nuscenes_att': opt.nuscenes_att_weight,
                    'velocity': opt.velocity_weight,
                    'seg': opt.seg_weight,
-                   'conv_weight': 0 }
+                   'conv_weight': -1 }
     opt.weights = {head: weight_dict[head] for head in opt.heads}
     for head in opt.weights:
       if opt.weights[head] == 0:
@@ -404,7 +407,7 @@ class opts(object):
     default_dataset_info = {
       'ctdet': 'coco', 'multi_pose': 'coco_hp', 'ddd': 'nuscenes',
       'tracking,ctdet': 'coco', 'tracking,multi_pose': 'coco_hp', 
-      'tracking,ddd': 'nuscenes'
+      'tracking,ddd': 'nuscenes', 'tracking,seg': 'kitti_mots',
     }
     opt = self.parse()
     from dataset.dataset_factory import dataset_factory

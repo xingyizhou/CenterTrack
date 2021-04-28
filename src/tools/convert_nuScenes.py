@@ -228,8 +228,8 @@ def main():
               pt_3d = unproject_2d_to_3d(pt_2d, ann['depth'], calib)
               pt_3d[1] += ann['dim'][0] / 2
               print('loc      ', pt_3d)
-            cv2.imshow('img', img)
-            cv2.imshow('img_3d', img_3d)
+            # cv2.imshow('img', img)
+            # cv2.imshow('img_3d', img_3d)
             cv2.waitKey()
             nusc.render_sample_data(image_token)
             plt.show()

@@ -94,7 +94,7 @@ if __name__ == '__main__':
     expt_cls, pts = [], []
     while True:
       finished = False
-      cv2.imshow(image_name, img)
+      # cv2.imshow(image_name, img)
       key = cv2.waitKey(1)
       if key == 100:
         i = i + 1

@@ -359,7 +359,6 @@ class Detector(object):
       meta['out_height'], meta['out_width'], self.opt.num_classes,
       [meta['calib']], meta['height'], meta['width'])
     self.this_calib = meta['calib']
-    
     if scale != 1:
       for i in range(len(dets[0])):
         for k in ['bbox', 'hps']:
@@ -405,7 +404,6 @@ class Detector(object):
       debugger.add_img(self.pre_image_ori if self.pre_image_ori is not None else image, 
         img_id='previous')
       self.pre_image_ori = image
-    
     for j in range(len(results)):
       if results[j]['score'] > self.opt.vis_thresh:
         if 'active' in results[j] and results[j]['active'] == 0:
@@ -441,7 +439,7 @@ class Detector(object):
         vis_thresh=self.opt.vis_thresh, img_id='ddd_pred')
       debugger.add_bird_view(
         results, vis_thresh=self.opt.vis_thresh,
-        img_id='bird_pred', cnt=self.cnt)
+      img_id='bird_pred', cnt=self.cnt)
       if self.opt.show_track_color and self.opt.debug == 4:
         del debugger.imgs['generic'], debugger.imgs['bird_pred']
     if 'ddd_pred' in debugger.imgs:

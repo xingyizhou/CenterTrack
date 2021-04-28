@@ -22,6 +22,7 @@ class BaseModel(nn.Module):
         self.num_stacks = num_stacks
         self.heads = heads
         for head in self.heads:
+            print('Building head:', head, 'with:', head_convs[head])
             classes = self.heads[head]
             head_conv = head_convs[head]
             if len(head_conv) > 0:

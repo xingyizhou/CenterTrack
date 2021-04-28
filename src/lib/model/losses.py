@@ -203,8 +203,15 @@ class SegDiceLoss(nn.Module):
         tflat = target.contiguous().view(-1)
         intersection = (iflat * tflat).sum()
         return 1 - ((2. * intersection + smooth) /((iflat*iflat).sum() + (tflat*tflat).sum() + smooth))
-        
+
     def forward(self, seg_feat, conv_weight, mask,ind, target):
+        # print('===== SegDiceLoss =====')
+        # print('seg_feat', seg_feat.size())
+        # print('conv_weight', conv_weight.size())
+        # print('mask', mask.size())
+        # print('target', target.size())
+        # print('ind', ind.size())
+        # print('-'*100)
         mask_loss=0.
         batch_size = seg_feat.size(0)
         weight = _tranpose_and_gather_feat(conv_weight, ind)
@@ -237,6 +244,10 @@ class SegDiceLoss(nn.Module):
             feat = F.conv2d(feat,conv3w,conv3b,groups=num_obj).sigmoid().squeeze()
 
             true_mask = mask[i,:num_obj,None,None].float()
+            # print('mask', mask.size())
+            # print('true_mask', true_mask.size())
+            # print('feat', feat.size())
+            # print('target[i]', target[i].size())
             mask_loss+=self.dice_loss(feat*true_mask,target[i]*true_mask)
 
         return mask_loss/batch_size

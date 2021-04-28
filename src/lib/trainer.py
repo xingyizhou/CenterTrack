@@ -42,19 +42,22 @@ class GenericLoss(torch.nn.Module):
   def forward(self, outputs, batch):
     opt = self.opt
     losses = {head: 0 for head in opt.heads}
-
     for s in range(opt.num_stacks):
       output = outputs[s]
       output = self._sigmoid_output(output)
-
       if 'hm' in output:
         losses['hm'] += self.crit(
           output['hm'], batch['hm'], batch['ind'], 
           batch['mask'], batch['cat']) / opt.num_stacks
-      
       if 'seg' in output:
+        # print('\nseg_feat', output['seg'].size())
+        # print('conv_weight', output['conv_weight'].size())
+        # print('hm', output['hm'].size())
+        # print('target', batch['seg_mask'].size())
+        # print('ind', batch['ind'].size())
+        # print('mask', batch['mask'].size())
         losses['seg'] += self.crit_seg(output['seg'],output['conv_weight'],
-                                      batch['reg_mask'], batch['ind'], batch['seg_mask']) / opt.num_stacks
+                                      batch['mask'], batch['ind'], batch['seg_mask']) / opt.num_stacks
       
       regression_heads = [
         'reg', 'wh', 'tracking', 'ltrb', 'ltrb_amodal', 'hps', 

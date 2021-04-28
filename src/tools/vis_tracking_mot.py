@@ -83,9 +83,9 @@ if __name__ == '__main__':
       for K in range(1, len(sys.argv)):
         img_pred = img.copy()
         draw_bbox(img_pred, image_to_preds[K][frame_id])
-        cv2.imshow('pred{}'.format(K), img_pred)
+        # cv2.imshow('pred{}'.format(K), img_pred)
       draw_bbox(img, image_to_anns[frame_id])
-      cv2.imshow('gt', img)
+      # cv2.imshow('gt', img)
       cv2.waitKey()
       # if SAVE_VIDEO:
       #   video.write(img_pred)
