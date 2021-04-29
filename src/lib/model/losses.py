@@ -244,10 +244,7 @@ class SegDiceLoss(nn.Module):
             feat = F.conv2d(feat,conv3w,conv3b,groups=num_obj).sigmoid().squeeze()
 
             true_mask = mask[i,:num_obj,None,None].float()
-            # print('mask', mask.size())
-            # print('true_mask', true_mask.size())
-            # print('feat', feat.size())
-            # print('target[i]', target[i].size())
+
             mask_loss+=self.dice_loss(feat*true_mask,target[i]*true_mask)
 
         return mask_loss/batch_size

@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 from .utils import _gather_feat, _tranpose_and_gather_feat
 from .utils import _nms, _topk, _topk_channel
+import torch.nn.functional as F
 
 
 def _update_kps_with_hm(
@@ -80,6 +81,52 @@ def _update_kps_with_hm(
   else:
     return kps, kps
 
+
+def seg_decode(seg_feat, conv_weight, xs, ys, inds,  K):
+    ys = ys.squeeze(-1)
+    xs = xs.squeeze(-1)
+    batch_size = seg_feat.size(0)
+    feat_channel = seg_feat.size(1)
+    h, w = seg_feat.size(-2), seg_feat.size(-1)
+    mask = torch.zeros((batch_size, K,h,w)).to(device=seg_feat.device)
+    x_range = torch.arange(w).float().to(device=seg_feat.device)
+    y_range = torch.arange(h).float().to(device=seg_feat.device)
+    y_grid, x_grid = torch.meshgrid([y_range, x_range])
+    weight = _tranpose_and_gather_feat(conv_weight, inds)
+    for i in range(batch_size):
+        conv1w, conv1b, conv2w, conv2b, conv3w, conv3b = \
+            torch.split(weight[i], [(feat_channel + 2) * feat_channel, feat_channel,
+                                              feat_channel ** 2, feat_channel,
+                                              feat_channel, 1], dim=-1)
+        y_rel_coord = (y_grid[None, None] - ys[i].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).float()) / 128.
+        x_rel_coord = (x_grid[None, None] - xs[i].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).float()) / 128.
+        feat = seg_feat[i][None].repeat([K, 1, 1, 1])
+
+        feat = torch.cat([feat, x_rel_coord, y_rel_coord], dim=1)
+        feat = feat.view(1, -1, h, w)
+
+        conv1w = conv1w.contiguous().view(-1, feat_channel + 2, 1, 1)
+        conv1b = conv1b.contiguous().flatten()
+        feat = F.conv2d(feat, conv1w, conv1b, groups=K).relu()
+
+        conv2w = conv2w.contiguous().view(-1, feat_channel, 1, 1)
+        conv2b = conv2b.contiguous().flatten()
+        feat = F.conv2d(feat, conv2w, conv2b, groups=K).relu()
+
+        conv3w = conv3w.contiguous().view(-1, feat_channel, 1, 1)
+        conv3b = conv3b.contiguous().flatten()
+        feat = F.conv2d(feat, conv3w, conv3b, groups=K).sigmoid().squeeze()
+        mask[i] = feat
+
+        # import matplotlib.pyplot as plt 
+        # plt.imshow(feat[0].detach().cpu().numpy())
+        # print('decode.')
+        # plt.savefig(f'./tmp/decode_{0}.jpg')
+        # plt.imshow(feat[1].detach().cpu().numpy())
+        # plt.savefig(f'./tmp/decode_{1}.jpg')
+
+    return mask
+
 def generic_decode(output, K=100, opt=None):
   if not ('hm' in output):
     return {}
@@ -109,6 +156,9 @@ def generic_decode(output, K=100, opt=None):
     xs = xs0.view(batch, K, 1) + 0.5
     ys = ys0.view(batch, K, 1) + 0.5
 
+  xs0 = xs0.view(batch, K, 1)
+  ys0 = ys0.view(batch, K, 1)
+
   if 'wh' in output:
     wh = output['wh']
     wh = _tranpose_and_gather_feat(wh, inds) # B x K x (F)
@@ -128,6 +178,14 @@ def generic_decode(output, K=100, opt=None):
     ret['bboxes'] = bboxes
     # print('ret bbox', ret['bboxes'])
  
+  if 'seg' in output:
+    seg_feat = output['seg']
+    conv_weight = output['conv_weight']
+    assert not opt.flip_test,"not support flip_test"
+    torch.cuda.synchronize()
+    seg_masks = seg_decode(seg_feat, conv_weight, xs0, ys0, inds,  K)
+    ret['seg'] = seg_masks
+  
   if 'ltrb' in output:
     ltrb = output['ltrb']
     ltrb = _tranpose_and_gather_feat(ltrb, inds) # B x K x 4

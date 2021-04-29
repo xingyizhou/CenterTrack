@@ -421,11 +421,21 @@ class GenericDataset(data.Dataset):
     return bbox
 
   def _get_seg_mask_output(self, segmentation, trans_output, output_w_h, flipped=False):
+    # print(segmentation)
     seg_mask = mask_utils.decode(segmentation)
+    # print('seg_mask')
+    # import matplotlib.pyplot as plt 
+    # idx = segmentation['counts'][-1]
+    # plt.imshow(seg_mask)
+    # plt.savefig(f'./tmp/_md_{idx}.jpg')
     if flipped:
       seg_mask = seg_mask[:, ::-1]
     seg_mask = cv2.warpAffine(seg_mask, trans_output, 
                     output_w_h, flags=cv2.INTER_NEAREST)
+    # import matplotlib.pyplot as plt 
+    # idx = segmentation['counts'][-1]
+    # plt.imshow(seg_mask)
+    # plt.savefig(f'./tmp/_wf_{idx}.jpg')
 
     return seg_mask
   def _get_bbox_output(self, bbox, trans_output, height, width):
@@ -482,6 +492,9 @@ class GenericDataset(data.Dataset):
         gt_det['tracking'].append(np.zeros(2, np.float32))
     
     if 'seg' in self.opt.task and seg_mask is not None:
+      # print('seg_mask')
+      # cv2.imwrite(f'./tmp/dataset_{k}.jpg', seg_mask)
+
       ret['seg_mask'][k] = seg_mask
 
 

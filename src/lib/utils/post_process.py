@@ -8,6 +8,8 @@ from .image import transform_preds_with_trans, get_affine_transform
 from .ddd_utils import ddd2locrot, comput_corners_3d
 from .ddd_utils import project_to_image, rot_y2alpha
 import numba
+from pycocotools import mask as mask_utils
+import pycocotools.coco as coco
 
 def get_alpha(rot):
   # output: (B, 8) [bin1_cls[0], bin1_cls[1], bin1_sin, bin1_cos, 
@@ -36,6 +38,12 @@ def generic_post_process(
       item['class'] = int(dets['clses'][i][j]) + 1
       item['ct'] = transform_preds_with_trans(
         (dets['cts'][i][j]).reshape(1, 2), trans).reshape(2)
+
+      if 'seg' in dets:
+        item['seg'] = mask_utils.encode(
+          (np.asfortranarray(cv2.warpAffine(dets['seg'][i][j], trans, (width, height),
+				   flags=cv2.INTER_CUBIC) > 0.5).astype(np.uint8)))
+        item['seg']['counts'] = item['seg']['counts'].decode("utf-8")
 
       if 'tracking' in dets:
         tracking = transform_preds_with_trans(
