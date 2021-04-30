@@ -10,6 +10,7 @@ from .ddd_utils import project_to_image, rot_y2alpha
 import numba
 from pycocotools import mask as mask_utils
 import pycocotools.coco as coco
+from .utils import make_disjoint
 
 def get_alpha(rot):
   # output: (B, 8) [bin1_cls[0], bin1_cls[1], bin1_sin, bin1_cos, 
@@ -94,6 +95,11 @@ def generic_post_process(
       for j in range(len(preds)):
         preds[j]['velocity'] = dets['velocity'][i][j]
 
+    if 'seg' in dets and not opt.not_make_mask_disjoint:
+      strategy = 'y_pos'
+      preds = make_disjoint(preds, strategy)
+
     ret.append(preds)
   
+
   return ret

@@ -111,9 +111,25 @@ def save_and_exit(opt, out=None, results=None, out_name=''):
     print('saving results to', save_dir)
     json.dump(_to_list(copy.deepcopy(results)), 
               open(save_dir, 'w'))
+  if 'seg' in opt.task and 'tracking' in opt.task:
+    save_dir =  '../results/{}_results.txt'.format(opt.exp_id + '_' + out_name)
+    print('saving results for mots_tools to', save_dir)
+    json2mots(opt, results, save_dir)
   if opt.save_video and out is not None:
     out.release()
   sys.exit(0)
+
+def json2mots(opt, results, save_dir):
+  with open(save_dir, "w") as fp:
+    for time_frame in results.keys():
+        for obj in results[time_frame]:
+            track_id = obj['tracking_id']
+            class_id = obj['class']
+            img_height = obj['seg']['size'][0]
+            img_width =  obj['seg']['size'][1]
+            seg_rle = obj['seg']['counts']
+            line = f"{time_frame} {track_id} {class_id} {img_height} {img_width} {seg_rle}\n"
+            fp.write(line)
 
 def _to_list(results):
   for img_id in results:

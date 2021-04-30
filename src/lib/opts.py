@@ -227,6 +227,8 @@ class opts(object):
                              help='.')
     self.parser.add_argument('--seg_weight', default= 3., type=float,
                              help='')
+    self.parser.add_argument('--not_make_mask_disjoint', action='store_true')
+
 
     # loss
     self.parser.add_argument('--tracking_weight', type=float, default=1)
