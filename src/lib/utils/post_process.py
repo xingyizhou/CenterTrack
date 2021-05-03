@@ -23,6 +23,12 @@ def get_alpha(rot):
 
 def generic_post_process(
   opt, dets, c, s, h, w, num_classes, calibs=None, height=-1, width=-1):
+  """
+    h: out_height
+    w: out_width
+    height: img_height
+    width: img_width
+  """
   if not ('scores' in dets):
     return [{}], [{}]
   ret = []

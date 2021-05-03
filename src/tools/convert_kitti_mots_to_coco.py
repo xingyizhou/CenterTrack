@@ -7,11 +7,12 @@ import json
 import numpy as np
 import os
 import cv2
+TRAIN_SEQ = [0, 1, 3, 4, 5, 9, 11, 12, 15, 17, 19, 20]
+VAL_SEQ = [2, 6, 7, 8, 10, 13, 14, 16, 18]
 DATA_PATH = '../../data/kitti_mots/'
-SPLITS = ['train_half', 'val_half', 'train', 'test']
-VIDEO_SETS = {'train': range(21), 'test': range(29), 
-  'train_half': range(21), 'val_half': range(21)}
-CREATE_HALF_LABEL = True
+SPLITS = ['val', 'train', 'test']
+VIDEO_SETS = {'train': TRAIN_SEQ , 'test': range(29), 'val': VAL_SEQ}
+CREATE_HALF_LABEL = False
 DEBUG = False
 
 '''

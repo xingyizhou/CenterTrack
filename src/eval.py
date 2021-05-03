@@ -18,28 +18,23 @@ image_ext = ['jpg', 'jpeg', 'png', 'webp']
 video_ext = ['mp4', 'mov', 'avi', 'mkv']
 time_stats = ['tot', 'load', 'pre', 'net', 'dec', 'post', 'merge', 'display']
 
-def demo(opt):
+def inference(opt):
   os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpus_str
   opt.debug = max(opt.debug, 1)
   detector = Detector(opt)
 
-  if opt.demo == 'webcam' or \
-    opt.demo[opt.demo.rfind('.') + 1:].lower() in video_ext:
-    is_video = True
-    # demo on video stream
-    cam = cv2.VideoCapture(0 if opt.demo == 'webcam' else opt.demo)
+ 
+   
+  # Demo on images sequences
+  if os.path.isdir(opt.inf_dir):
+    image_names = []
+    ls = os.listdir(opt.demo)
+    for file_name in sorted(ls):
+        ext = file_name[file_name.rfind('.') + 1:].lower()
+        if ext in image_ext:
+            image_names.append(os.path.join(opt.demo, file_name))
   else:
-    is_video = False
-    # Demo on images sequences
-    if os.path.isdir(opt.demo):
-      image_names = []
-      ls = os.listdir(opt.demo)
-      for file_name in sorted(ls):
-          ext = file_name[file_name.rfind('.') + 1:].lower()
-          if ext in image_ext:
-              image_names.append(os.path.join(opt.demo, file_name))
-    else:
-      image_names = [opt.demo]
+    image_names = [opt.demo]
 
   # Initialize output video
   out = None
@@ -141,4 +136,4 @@ def _to_list(results):
 
 if __name__ == '__main__':
   opt = opts().init()
-  demo(opt)
+  inference(opt)

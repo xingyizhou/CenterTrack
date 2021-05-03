@@ -95,6 +95,8 @@ class GenericDataset(data.Dataset):
       c, s, rot, [opt.input_w, opt.input_h])
     trans_output = get_affine_transform(
       c, s, rot, [opt.output_w, opt.output_h])
+    inv_trans_output = get_affine_transform(
+      c, s, rot, [opt.output_w, opt.output_h], inv=1)  
     inp = self._get_input(img, trans_input)
     ret = {'image': inp}
     gt_det = {'bboxes': [], 'scores': [], 'clses': [], 'cts': []}
@@ -146,6 +148,9 @@ class GenericDataset(data.Dataset):
       if 'segmentation' in ann.keys():
         seg_mask = self._get_seg_mask_output(
            ann['segmentation'], trans_output, (opt.output_w, opt.output_h), flipped)
+
+        rv_seg_mask = cv2.warpAffine(seg_mask, inv_trans_output, (width, height),
+				   flags=cv2.INTER_CUBIC)
 
       self._add_instance(
         ret, gt_det, k, cls_id, bbox, bbox_amodal, ann, trans_output, aug_s, 
@@ -421,21 +426,11 @@ class GenericDataset(data.Dataset):
     return bbox
 
   def _get_seg_mask_output(self, segmentation, trans_output, output_w_h, flipped=False):
-    # print(segmentation)
     seg_mask = mask_utils.decode(segmentation)
-    # print('seg_mask')
-    # import matplotlib.pyplot as plt 
-    # idx = segmentation['counts'][-1]
-    # plt.imshow(seg_mask)
-    # plt.savefig(f'./tmp/_md_{idx}.jpg')
     if flipped:
       seg_mask = seg_mask[:, ::-1]
     seg_mask = cv2.warpAffine(seg_mask, trans_output, 
                     output_w_h, flags=cv2.INTER_NEAREST)
-    # import matplotlib.pyplot as plt 
-    # idx = segmentation['counts'][-1]
-    # plt.imshow(seg_mask)
-    # plt.savefig(f'./tmp/_wf_{idx}.jpg')
 
     return seg_mask
   def _get_bbox_output(self, bbox, trans_output, height, width):

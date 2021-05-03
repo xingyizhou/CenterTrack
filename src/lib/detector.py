@@ -66,6 +66,7 @@ class Detector(object):
       image = cv2.imread(image_or_path_or_tensor)
     else:
       image = image_or_path_or_tensor['image'][0].numpy()
+
       pre_processed_images = image_or_path_or_tensor
       pre_processed = True
     
@@ -211,6 +212,8 @@ class Detector(object):
     '''
     resized_image, c, s, inp_width, inp_height, height, width = \
       self._transform_scale(image)
+    #print(f'input hw: {inp_height} {inp_width} ,img hw: {height} {width}')
+    #print(np.shape(resized_image))
     trans_input = get_affine_transform(c, s, 0, [inp_width, inp_height])
     out_height =  inp_height // self.opt.down_ratio
     out_width =  inp_width // self.opt.down_ratio

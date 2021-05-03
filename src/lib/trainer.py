@@ -16,6 +16,10 @@ from model.decode import generic_decode
 from model.utils import _sigmoid, flip_tensor, flip_lr_off, flip_lr
 from utils.debugger import Debugger
 from utils.post_process import generic_post_process
+from tensorboardX import SummaryWriter
+from tqdm import tqdm
+import datetime
+
 
 class GenericLoss(torch.nn.Module):
   def __init__(self, opt):
@@ -50,12 +54,6 @@ class GenericLoss(torch.nn.Module):
           output['hm'], batch['hm'], batch['ind'], 
           batch['mask'], batch['cat']) / opt.num_stacks
       if 'seg' in output:
-        # print('\nseg_feat', output['seg'].size())
-        # print('conv_weight', output['conv_weight'].size())
-        # print('hm', output['hm'].size())
-        # print('target', batch['seg_mask'].size())
-        # print('ind', batch['ind'].size())
-        # print('mask', batch['mask'].size())
         losses['seg'] += self.crit_seg(output['seg'],output['conv_weight'],
                                       batch['mask'], batch['ind'], batch['seg_mask']) / opt.num_stacks
       
@@ -115,6 +113,8 @@ class Trainer(object):
     self.optimizer = optimizer
     self.loss_stats, self.loss = self._get_losses(opt)
     self.model_with_loss = ModleWithLoss(model, self.loss)
+    ts = datetime.datetime.now().strftime("%m%d-%H%M")
+    self.writer = SummaryWriter(f'runs/{opt.task}-{opt.exp_id}-{ts}')
 
   def set_device(self, gpus, chunk_sizes, device):
     if len(gpus) > 1:
@@ -165,14 +165,14 @@ class Trainer(object):
       end = time.time()
 
       Bar.suffix = '{phase}: [{0}][{1}/{2}]|Tot: {total:} |ETA: {eta:} '.format(
-        epoch, iter_id, num_iters, phase=phase,
-        total=bar.elapsed_td, eta=bar.eta_td)
+       epoch, iter_id, num_iters, phase=phase,
+       total=bar.elapsed_td, eta=bar.eta_td)
       for l in avg_loss_stats:
         avg_loss_stats[l].update(
           loss_stats[l].mean().item(), batch['image'].size(0))
         Bar.suffix = Bar.suffix + '|{} {:.4f} '.format(l, avg_loss_stats[l].avg)
       Bar.suffix = Bar.suffix + '|Data {dt.val:.3f}s({dt.avg:.3f}s) ' \
-        '|Net {bt.avg:.3f}s'.format(dt=data_time, bt=batch_time)
+       '|Net {bt.avg:.3f}s'.format(dt=data_time, bt=batch_time)
       if opt.print_iter > 0: # If not using progress bar
         if iter_id % opt.print_iter == 0:
           print('{}/{}| {}'.format(opt.task, opt.exp_id, Bar.suffix)) 
@@ -185,6 +185,13 @@ class Trainer(object):
       del output, loss, loss_stats
     
     bar.finish()
+
+    for l in avg_loss_stats:
+      if phase == 'train':
+        self.writer.add_scalar(f"train/{l}", avg_loss_stats[l].avg, epoch)
+      else:
+        self.writer.add_scalar(f"val/{l}", avg_loss_stats[l].avg, epoch)
+
     ret = {k: v.avg for k, v in avg_loss_stats.items()}
     ret['time'] = bar.elapsed_td.total_seconds() / 60.
     return ret, results

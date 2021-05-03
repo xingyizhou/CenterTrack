@@ -30,6 +30,10 @@ class opts(object):
     self.parser.add_argument('--demo', default='', 
                              help='path to image/ image folders/ video. '
                                   'or "webcam"')
+    self.parser.add_argument('--inf_dir', default='', 
+                             help='path to image folders')
+    self.parser.add_argument('--inf_seqmap', default='', 
+                             help='file for seqmap')
     self.parser.add_argument('--load_model', default='',
                              help='path to pretrained model')
     self.parser.add_argument('--resume', action='store_true',
