@@ -118,13 +118,6 @@ def seg_decode(seg_feat, conv_weight, xs, ys, inds,  K):
         feat = F.conv2d(feat, conv3w, conv3b, groups=K).sigmoid().squeeze()
         mask[i] = feat
 
-        # import matplotlib.pyplot as plt 
-        # plt.imshow(feat[0].detach().cpu().numpy())
-        # print('decode.')
-        # plt.savefig(f'./tmp/decode_{0}.jpg')
-        # plt.imshow(feat[1].detach().cpu().numpy())
-        # plt.savefig(f'./tmp/decode_{1}.jpg')
-
     return mask
 
 def generic_decode(output, K=100, opt=None):

@@ -18,27 +18,45 @@ image_ext = ['jpg', 'jpeg', 'png', 'webp']
 video_ext = ['mp4', 'mov', 'avi', 'mkv']
 time_stats = ['tot', 'load', 'pre', 'net', 'dec', 'post', 'merge', 'display']
 
-def inference(opt):
+def load_seqmap(seqmap_filename):
+  print("Loading seqmap...")
+  seqmap = []
+  max_frames = {}
+  with open(seqmap_filename, "r") as fh:
+    for i, l in enumerate(fh):
+      fields = l.split(" ")
+      seq = "%04d" % int(fields[0])
+      seqmap.append(seq)
+      max_frames[seq] = int(fields[3])
+  return seqmap, max_frames
+
+def evaluation(opt):
   os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpus_str
   opt.debug = max(opt.debug, 1)
   detector = Detector(opt)
+  seqmaps, max_frames = load_seqmap(opt.inf_seqmap)
+  for seq in seqmaps:
+    inference(opt, detector, seq, max_frames[seq])
+  print('inference done for:', seqmaps)
 
- 
+
+
+def inference(opt, detector, seqmap, max_frames):
+  
+  image_dir = os.path.join(opt.inf_dir, seqmap)
    
   # Demo on images sequences
-  if os.path.isdir(opt.inf_dir):
-    image_names = []
-    ls = os.listdir(opt.demo)
-    for file_name in sorted(ls):
-        ext = file_name[file_name.rfind('.') + 1:].lower()
-        if ext in image_ext:
-            image_names.append(os.path.join(opt.demo, file_name))
-  else:
-    image_names = [opt.demo]
+  image_names = []
+  ls = os.listdir(image_dir)
+  for file_name in sorted(ls):
+      ext = file_name[file_name.rfind('.') + 1:].lower()
+      if ext in image_ext:
+          image_names.append(os.path.join(image_dir, file_name))
+
 
   # Initialize output video
   out = None
-  out_name = opt.demo[opt.demo.rfind('/') + 1:]
+  out_name = seqmap
   print('out_name', out_name)
   if opt.save_video:
     # fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -51,17 +69,20 @@ def inference(opt):
     detector.pause = False
   cnt = 0
   results = {}
+  is_video = False
 
   while True:
       if is_video:
         _, img = cam.read()
         if img is None:
           save_and_exit(opt, out, results, out_name)
+          return 
       else:
         if cnt < len(image_names):
           img = cv2.imread(image_names[cnt])
         else:
           save_and_exit(opt, out, results, out_name)
+          return 
       cnt += 1
 
       # resize the original video for saving video results
@@ -98,21 +119,20 @@ def inference(opt):
         save_and_exit(opt, out, results, out_name)
         return 
   save_and_exit(opt, out, results, out_name)
+  return 
 
 
-def save_and_exit(opt, out=None, results=None, out_name=''):
-  if opt.save_results and (results is not None):
-    save_dir =  '../results/{}_results.json'.format(opt.exp_id + '_' + out_name)
-    print('saving results to', save_dir)
-    json.dump(_to_list(copy.deepcopy(results)), 
-              open(save_dir, 'w'))
+def save_and_exit(opt, out=None, results=None, out_name='default'):
   if 'seg' in opt.task and 'tracking' in opt.task:
-    save_dir =  '../results/{}_results.txt'.format(opt.exp_id + '_' + out_name)
-    print('saving results for mots_tools to', save_dir)
-    json2mots(opt, results, save_dir)
+    save_dir = os.path.join('../results', opt.exp_id)
+    if not os.path.exists(save_dir):
+      os.makedirs(save_dir)
+    save_path = os.path.join(save_dir, f"{out_name}.txt")
+    print('saving results for mots_tools to', save_path)
+    json2mots(opt, results, save_path)
   if opt.save_video and out is not None:
     out.release()
-  sys.exit(0)
+  #sys.exit(0)
 
 def json2mots(opt, results, save_dir):
   with open(save_dir, "w") as fp:
@@ -136,4 +156,4 @@ def _to_list(results):
 
 if __name__ == '__main__':
   opt = opts().init()
-  inference(opt)
+  evaluation(opt)
