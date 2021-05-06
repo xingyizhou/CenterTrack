@@ -21,7 +21,7 @@ class KITTIMOTS(GenericDataset):
   # 0 for ignore losses for all categories in the bounding box region
   # ['Pedestrian', 'Car', 'Cyclist', 'Van', 'Truck',  'Person_sitting',
   #       'Tram', 'Misc', 'DontCare']
-  cat_ids = {1:1, 2:2, 10:10}
+  cat_ids = {1:1, 2:2, 10:0}
   max_objs = 50
   def __init__(self, opt, split):
     data_dir = os.path.join(opt.data_dir, 'kitti_mots')

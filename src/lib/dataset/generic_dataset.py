@@ -146,11 +146,12 @@ class GenericDataset(data.Dataset):
         continue
       seg_mask = None
       if 'segmentation' in ann.keys():
+        self.coco.imgs[ann['image_id']].update({'height':height, 'width':width})
         seg_mask = self._get_seg_mask_output(
-           ann['segmentation'], trans_output, (opt.output_w, opt.output_h), flipped)
+           ann, trans_output, (opt.output_w, opt.output_h), flipped)
 
-        rv_seg_mask = cv2.warpAffine(seg_mask, inv_trans_output, (width, height),
-				   flags=cv2.INTER_CUBIC)
+        # rv_seg_mask = cv2.warpAffine(seg_mask, inv_trans_output, (width, height),
+				#    flags=cv2.INTER_CUBIC)
 
       self._add_instance(
         ret, gt_det, k, cls_id, bbox, bbox_amodal, ann, trans_output, aug_s, 
@@ -191,7 +192,7 @@ class GenericDataset(data.Dataset):
 
   def _load_pre_data(self, video_id, frame_id, sensor_id=1):
     img_infos = self.video_to_images[video_id]
-    # If training, random sample nearby frames as the "previoud" frame
+    # If training, random sample nearby frames as the "previous" frame
     # If testing, get the exact prevous frame
     if 'train' in self.split:
       img_ids = [(img_info['id'], img_info['frame_id']) \
@@ -425,8 +426,10 @@ class GenericDataset(data.Dataset):
                     dtype=np.float32)
     return bbox
 
-  def _get_seg_mask_output(self, segmentation, trans_output, output_w_h, flipped=False):
-    seg_mask = mask_utils.decode(segmentation)
+  def _get_seg_mask_output(self, ann, trans_output, output_w_h, flipped=False):
+
+    seg_mask = self.coco.annToMask(ann)
+    #seg_mask = mask_utils.decode(ann['segmentation'])
     if flipped:
       seg_mask = seg_mask[:, ::-1]
     seg_mask = cv2.warpAffine(seg_mask, trans_output, 

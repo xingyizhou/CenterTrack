@@ -12,7 +12,7 @@ class opts(object):
     # basic experiment setting
     self.parser.add_argument('task', default='',
                              help='ctdet | ddd | multi_pose '
-                             '| tracking or combined with ,')
+                             '| tracking | seg or combined with ,')
     self.parser.add_argument('--dataset', default='coco',
                              help='see lib/dataset/dataset_facotry for ' + 
                             'available datasets')

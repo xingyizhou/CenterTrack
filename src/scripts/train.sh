@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=1 python main.py tracking,seg --exp_id mots_seqmap --dataset kitti_mots --dataset_version train --pre_hm --hm_disturb 0.05 --lost_disturb 0.2 --fp_disturb 0.1 --gpus 0 --batch_size 18 --num_epochs 140  --lr_step 80,100
