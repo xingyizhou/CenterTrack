@@ -204,19 +204,17 @@ class SegDiceLoss(nn.Module):
         intersection = (iflat * tflat).sum()
         return 1 - ((2. * intersection + smooth) /((iflat*iflat).sum() + (tflat*tflat).sum() + smooth))
 
-    def forward(self, seg_feat, conv_weight, mask,ind, target):
-        # print('===== SegDiceLoss =====')
-        # print('seg_feat', seg_feat.size())
-        # print('conv_weight', conv_weight.size())
-        # print('mask', mask.size())
-        # print('target', target.size())
-        # print('ind', ind.size())
-        # print('-'*100)
+    def forward(self, seg_feat, conv_weight, reg, mask,ind, target):
         mask_loss=0.
         batch_size = seg_feat.size(0)
         weight = _tranpose_and_gather_feat(conv_weight, ind)
+        reg = _tranpose_and_gather_feat(reg, ind)
         h,w = seg_feat.size(-2),seg_feat.size(-1)
-        x,y = ind%w,ind/w
+        x0,y0 = ind%w,ind/w
+        x = x0
+        y = y0
+        #x = x0.float() + reg[:, :, 0]
+        #y = y0.float() + reg[:, :, 1]
         x_range = torch.arange(w).float().to(device=seg_feat.device)
         y_range = torch.arange(h).float().to(device=seg_feat.device)
         y_grid, x_grid = torch.meshgrid([y_range, x_range])

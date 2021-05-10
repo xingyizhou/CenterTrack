@@ -54,7 +54,7 @@ class GenericLoss(torch.nn.Module):
           output['hm'], batch['hm'], batch['ind'], 
           batch['mask'], batch['cat']) / opt.num_stacks
       if 'seg' in output:
-        losses['seg'] += self.crit_seg(output['seg'],output['conv_weight'],
+        losses['seg'] += self.crit_seg(output['seg'],output['conv_weight'], output['reg'],
                                       batch['mask'], batch['ind'], batch['seg_mask']) / opt.num_stacks
       
       regression_heads = [

@@ -176,7 +176,7 @@ def generic_decode(output, K=100, opt=None):
     conv_weight = output['conv_weight']
     assert not opt.flip_test,"not support flip_test"
     torch.cuda.synchronize()
-    seg_masks = seg_decode(seg_feat, conv_weight, xs, ys, inds,  K)
+    seg_masks = seg_decode(seg_feat, conv_weight, xs0, ys0, inds,  K)
     ret['seg'] = seg_masks
   
   if 'ltrb' in output:

@@ -46,12 +46,6 @@ def generic_post_process(
       item['ct'] = transform_preds_with_trans(
         (dets['cts'][i][j]).reshape(1, 2), trans).reshape(2)
 
-      if 'seg' in dets:
-        item['seg'] = mask_utils.encode(
-          (np.asfortranarray(cv2.warpAffine(dets['seg'][i][j], trans, (width, height),
-				   flags=cv2.INTER_CUBIC) > 0.5).astype(np.uint8)))
-        item['seg']['counts'] = item['seg']['counts'].decode("utf-8")
-
       if 'tracking' in dets:
         tracking = transform_preds_with_trans(
           (dets['tracking'][i][j] + dets['cts'][i][j]).reshape(1, 2), 
@@ -62,6 +56,15 @@ def generic_post_process(
         bbox = transform_preds_with_trans(
           dets['bboxes'][i][j].reshape(2, 2), trans).reshape(4)
         item['bbox'] = bbox
+
+      if 'seg' in dets:
+        item['seg'] = mask_utils.encode(
+          (np.asfortranarray(cv2.warpAffine(dets['seg'][i][j], trans, (width, height),
+				   flags=cv2.INTER_CUBIC) > 0.5).astype(np.uint8)))
+        item['seg']['counts'] = item['seg']['counts'].decode("utf-8")
+        if opt.wh_weight <= 0:
+          item['bbox'] = mask_utils.toBbox(item['seg'])
+
 
       if 'hps' in dets:
         pts = transform_preds_with_trans(

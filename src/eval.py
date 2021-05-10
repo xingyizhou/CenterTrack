@@ -32,11 +32,12 @@ def load_seqmap(seqmap_filename):
 
 def evaluation(opt):
   os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpus_str
-  opt.debug = max(opt.debug, 1)
+  #opt.debug = max(opt.debug, 1)
   detector = Detector(opt)
   seqmaps, max_frames = load_seqmap(opt.inf_seqmap)
   for seq in seqmaps:
     inference(opt, detector, seq, max_frames[seq])
+    detector.reset_tracking()
   print('inference done for:', seqmaps)
 
 
@@ -138,7 +139,7 @@ def json2mots(opt, results, save_dir):
   with open(save_dir, "w") as fp:
     for time_frame in results.keys():
         for obj in results[time_frame]:
-            track_id = obj['tracking_id']
+            track_id = str(obj['class']) + "{0:03}".format(obj['tracking_id'])
             class_id = obj['class']
             img_height = obj['seg']['size'][0]
             img_width =  obj['seg']['size'][1]
