@@ -254,7 +254,7 @@ class Debugger(object):
     for i, v in self.imgs.items():
       if i in self.opt.save_imgs or self.opt.save_imgs == []:
         cv2.imwrite(
-          path + '/{}{}{}.png'.format(prefix, i, self.opt.save_img_suffix), v)
+          path + '/{}{}_{}.png'.format(prefix, i, self.opt.save_img_suffix), v)
 
   def remove_side(self, img_id, img):
     if not (img_id in self.imgs):

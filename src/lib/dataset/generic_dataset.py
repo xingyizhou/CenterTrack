@@ -113,9 +113,13 @@ class GenericDataset(data.Dataset):
         trans_input_pre = trans_input 
         trans_output_pre = trans_output
       else:
-        c_pre, aug_s_pre, _ = self._get_aug_param(
-          c, s, width, height, disturb=True)
-        s_pre = s * aug_s_pre
+        if self.split == 'train':
+          c_pre, aug_s_pre, _ = self._get_aug_param(
+            c, s, width, height, disturb=True)
+          s_pre = s * aug_s_pre
+        else:
+          c_pre = c
+          s_pre = s
         trans_input_pre = get_affine_transform(
           c_pre, s_pre, rot, [opt.input_w, opt.input_h])
         trans_output_pre = get_affine_transform(
@@ -226,7 +230,7 @@ class GenericDataset(data.Dataset):
     for i, ann in enumerate(anns):
       cls_id = int(self.cat_ids[ann['category_id']])
       if cls_id > self.opt.num_classes or cls_id <= -99 or \
-         ('iscrowd' in ann and ann['iscrowd'] > 0):
+         ('iscrowd' in ann and ann['iscrowd'] > 0):# or cls_id == 0:
         continue
       if 'bbox' not in anns[i].keys():
         ann['bbox'] = mask_utils.toBbox(ann['segmentation'])

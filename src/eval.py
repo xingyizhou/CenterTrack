@@ -124,10 +124,15 @@ def inference(opt, detector, seqmap, max_frames):
 
 
 def save_and_exit(opt, out=None, results=None, out_name='default'):
+  save_dir = os.path.join('../results', opt.exp_id)
+  if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
+  if (results is not None):
+    save_path =  os.path.join(save_dir, '{}.json'.format(out_name))
+    print('saving results to', save_path)
+    json.dump(_to_list(copy.deepcopy(results)), 
+              open(save_path, 'w'))
   if 'seg' in opt.task and 'tracking' in opt.task:
-    save_dir = os.path.join('../results', opt.exp_id)
-    if not os.path.exists(save_dir):
-      os.makedirs(save_dir)
     save_path = os.path.join(save_dir, f"{out_name}.txt")
     print('saving results for mots_tools to', save_path)
     json2mots(opt, results, save_path)

@@ -132,7 +132,7 @@ class opts(object):
                              help='batch size on the master gpu.')
     self.parser.add_argument('--num_iters', type=int, default=-1,
                              help='default: #samples / batch_size.')
-    self.parser.add_argument('--val_intervals', type=int, default=10000,
+    self.parser.add_argument('--val_intervals', type=int, default=2,
                              help='number of epochs to run validation.')
     self.parser.add_argument('--trainval', action='store_true',
                              help='include validation in training and '
@@ -229,7 +229,7 @@ class opts(object):
     # CondInst
     self.parser.add_argument('--seg_feat_channel', default=8,type=int,
                              help='.')
-    self.parser.add_argument('--seg_weight', default= 3., type=float,
+    self.parser.add_argument('--seg_weight', default= 1., type=float,
                              help='')
     self.parser.add_argument('--not_make_mask_disjoint', action='store_true')
 

@@ -105,7 +105,7 @@ def generic_post_process(
         preds[j]['velocity'] = dets['velocity'][i][j]
 
     if 'seg' in dets and not opt.not_make_mask_disjoint:
-      strategy = 'y_pos'
+      strategy = 'score'
       preds = make_disjoint(preds, strategy)
 
     ret.append(preds)

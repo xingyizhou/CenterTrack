@@ -13,18 +13,18 @@ import math
 from ..generic_dataset import GenericDataset
 from utils.ddd_utils import compute_box_3d, project_to_image
 
-class KITTIMOTS(GenericDataset):
+class KITTITrackingCustom(GenericDataset):
   num_categories = 2
   default_resolution = [384, 1280]
-  class_name = ['Car', 'Pedestrian']
+  class_name = ['Pedestrian', 'Car']
   # negative id is for "not as negative sample for abs(id)".
   # 0 for ignore losses for all categories in the bounding box region
   # ['Pedestrian', 'Car', 'Cyclist', 'Van', 'Truck',  'Person_sitting',
   #       'Tram', 'Misc', 'DontCare']
-  cat_ids = {1:1, 2:2, 10:0}
+  cat_ids = {1:1, 2:2, 3:-2, 4:-2, 5:-2, 6:-1, 7:-9999, 8:-9999, 9:0}
   max_objs = 50
   def __init__(self, opt, split):
-    data_dir = os.path.join(opt.data_dir, 'kitti_mots')
+    data_dir = os.path.join(opt.data_dir, 'kitti_tracking_custom')
     split_ = 'train' if opt.dataset_version != 'test' else 'test' #'test'
     img_dir = os.path.join(
       data_dir, 'data_tracking_image_2', '{}ing'.format(split_), 'image_02')
@@ -34,7 +34,7 @@ class KITTIMOTS(GenericDataset):
       data_dir, 'annotations', 'tracking_{}.json'.format(
         split))
     self.images = None
-    super(KITTIMOTS, self).__init__(opt, split, ann_path, img_dir)
+    super(KITTITrackingCustom, self).__init__(opt, split, ann_path, img_dir)
     self.alpha_in_degree = False
     self.num_samples = len(self.images)
 
@@ -49,7 +49,7 @@ class KITTIMOTS(GenericDataset):
 
 
   def save_results(self, results, save_dir):
-    results_dir = os.path.join(save_dir, 'results_kitti_mots')
+    results_dir = os.path.join(save_dir, 'results_kitti_tracking')
     if not os.path.exists(results_dir):
       os.mkdir(results_dir)
 
@@ -93,12 +93,11 @@ class KITTIMOTS(GenericDataset):
           f.write(' {:d} {:d} {:d}'.format(
             int(item['loc'][0]), int(item['loc'][1]), int(item['loc'][2])))
           f.write(' {:d} {:.2f}\n'.format(int(item['rot_y']), item['score']))
-          
       f.close()
 
   def run_eval(self, results, save_dir):
     self.save_results(results, save_dir)
     os.system('python tools/eval_kitti_track/evaluate_tracking.py ' + \
-              '{}/results_kitti_mots/ {}'.format(
+              '{}/results_kitti_tracking/ {}'.format(
                 save_dir, self.opt.dataset_version))
     
