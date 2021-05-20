@@ -14,6 +14,19 @@ from logger import Logger
 from dataset.dataset_factory import get_dataset
 from trainer import Trainer
 
+def load_best_val_loss(opt, model, optimizer, val_loader):
+  best_model_path = os.path.join(opt.save_dir, "model_best.pth")
+  if os.path.isfile(best_model_path):
+    print('Loading Best Model...')
+    model, optimizer, start_epoch = load_model(model, best_model_path, opt, optimizer)
+    trainer = Trainer(opt, model, optimizer)
+    trainer.set_device(opt.gpus, opt.chunk_sizes, opt.device)
+    with torch.no_grad():
+      log_dict_val, preds = trainer.val(start_epoch, val_loader)
+    return log_dict_val['tot']
+  else:
+    return 1e8
+
 def get_optimizer(opt, model):
   if opt.optim == 'adam':
     optimizer = torch.optim.Adam(model.parameters(), opt.lr)
@@ -52,6 +65,7 @@ def main(opt):
     val_loader = torch.utils.data.DataLoader(
       Dataset(opt, 'val'), batch_size=1, shuffle=False, num_workers=1,
       pin_memory=True)
+    best_val_loss = load_best_val_loss(opt, model, optimizer, val_loader)
 
     if opt.test:
       _, preds = trainer.val(0, val_loader)
@@ -82,6 +96,10 @@ def main(opt):
       for k, v in log_dict_val.items():
         logger.scalar_summary('val_{}'.format(k), v, epoch)
         logger.write('{} {:8f} | '.format(k, v))
+      if log_dict_val['tot'] < best_val_loss:
+        best_val_loss = log_dict_val['tot']
+        save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format('best')), 
+                 epoch, model, optimizer)
     else:
       save_model(os.path.join(opt.save_dir, 'model_last.pth'), 
                  epoch, model, optimizer)
