@@ -141,21 +141,25 @@ class GenericDataset(data.Dataset):
       cls_id = int(self.cat_ids[ann['category_id']])
       if cls_id > self.opt.num_classes or cls_id <= -999:
         continue
-      if 'bbox' not in ann.keys():
-        ann['bbox'] = mask_utils.toBbox(ann['segmentation'])
-      bbox, bbox_amodal = self._get_bbox_output(
-        ann['bbox'], trans_output, height, width)
-      if cls_id <= 0 or ('iscrowd' in ann and ann['iscrowd'] > 0):
-        self._mask_ignore_or_crowd(ret, cls_id, bbox)
-        continue
+
       seg_mask = None
       if 'segmentation' in ann.keys():
         self.coco.imgs[ann['image_id']].update({'height':height, 'width':width})
         seg_mask = self._get_seg_mask_output(
            ann, trans_output, (opt.output_w, opt.output_h), flipped)
-
-        # rv_seg_mask = cv2.warpAffine(seg_mask, inv_trans_output, (width, height),
-				#    flags=cv2.INTER_CUBIC)
+        
+      if 'bbox' not in ann.keys():
+        ann['bbox'] = mask_utils.toBbox(ann['segmentation'])
+      bbox, bbox_amodal = self._get_bbox_output(
+        ann['bbox'], trans_output, height, width)
+      
+      if cls_id <= 0 or ('iscrowd' in ann and ann['iscrowd'] > 0):
+        if 'segmentation' in ann.keys():
+          self._mask_ignore_or_crowd_seg(ret, cls_id, seg_mask)
+        else:
+          self._mask_ignore_or_crowd(ret, cls_id, bbox)
+        continue
+      
 
       self._add_instance(
         ret, gt_det, k, cls_id, bbox, bbox_amodal, ann, trans_output, aug_s, 
@@ -424,6 +428,13 @@ class GenericDataset(data.Dataset):
       self._ignore_region(ret['hm_hp'][:, int(bbox[1]): int(bbox[3]) + 1, 
                                           int(bbox[0]): int(bbox[2]) + 1])
 
+  def _mask_ignore_or_crowd_seg(self, ret, cls_id, seg_mask):
+    # mask out crowd region, only rectangular mask is supported
+    if cls_id == 0: # ignore all classes
+      ret['hm'] = ret['hm'][:] + seg_mask[np.newaxis, :]
+    else:
+      # mask out one specific class
+      ret['hm'][abs(cls_id) - 1, :] = ret['hm'][abs(cls_id) - 1, :] + seg_mask
 
   def _coco_box_to_bbox(self, box):
     bbox = np.array([box[0], box[1], box[0] + box[2], box[1] + box[3]],
