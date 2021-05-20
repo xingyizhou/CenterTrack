@@ -19,7 +19,7 @@ def load_best_val_loss(opt, model, optimizer, val_loader):
   if os.path.isfile(best_model_path):
     print('Loading Best Model...')
     model, optimizer, start_epoch = load_model(model, best_model_path, opt, optimizer)
-    trainer = Trainer(opt, model, optimizer)
+    trainer = Trainer(opt, model, optimizer, tb_writer=False)
     trainer.set_device(opt.gpus, opt.chunk_sizes, opt.device)
     with torch.no_grad():
       log_dict_val, preds = trainer.val(start_epoch, val_loader)

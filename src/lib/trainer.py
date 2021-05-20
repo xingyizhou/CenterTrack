@@ -108,13 +108,13 @@ class ModleWithLoss(torch.nn.Module):
 
 class Trainer(object):
   def __init__(
-    self, opt, model, optimizer=None):
+    self, opt, model, optimizer=None, tb_writer=True):
     self.opt = opt
     self.optimizer = optimizer
     self.loss_stats, self.loss = self._get_losses(opt)
     self.model_with_loss = ModleWithLoss(model, self.loss)
     ts = datetime.datetime.now().strftime("%m%d-%H%M")
-    self.writer = SummaryWriter(f'runs/{opt.task}-{opt.exp_id}-{ts}')
+    self.writer = SummaryWriter(f'runs/{opt.task}-{opt.exp_id}-{ts}') if tb_writer else None
 
   def set_device(self, gpus, chunk_sizes, device):
     if len(gpus) > 1:
@@ -186,11 +186,12 @@ class Trainer(object):
     
     bar.finish()
 
-    for l in avg_loss_stats:
-      if phase == 'train':
-        self.writer.add_scalar(f"train/{l}", avg_loss_stats[l].avg, epoch)
-      else:
-        self.writer.add_scalar(f"val/{l}", avg_loss_stats[l].avg, epoch)
+    if self.writer is not None:
+      for l in avg_loss_stats:
+        if phase == 'train':
+          self.writer.add_scalar(f"train/{l}", avg_loss_stats[l].avg, epoch)
+        else:
+          self.writer.add_scalar(f"val/{l}", avg_loss_stats[l].avg, epoch)
 
     ret = {k: v.avg for k, v in avg_loss_stats.items()}
     ret['time'] = bar.elapsed_td.total_seconds() / 60.
