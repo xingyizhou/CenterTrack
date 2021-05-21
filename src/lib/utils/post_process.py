@@ -12,6 +12,13 @@ from pycocotools import mask as mask_utils
 import pycocotools.coco as coco
 from .utils import make_disjoint
 
+
+
+def _coco_box_to_bbox(box):
+    bbox = np.array([box[0], box[1], box[0] + box[2], box[1] + box[3]],
+                    dtype=np.float32)
+    return bbox
+
 def get_alpha(rot):
   # output: (B, 8) [bin1_cls[0], bin1_cls[1], bin1_sin, bin1_cos, 
   #                 bin2_cls[0], bin2_cls[1], bin2_sin, bin2_cos]
@@ -63,7 +70,7 @@ def generic_post_process(
 				   flags=cv2.INTER_CUBIC) > 0.5).astype(np.uint8)))
         item['seg']['counts'] = item['seg']['counts'].decode("utf-8")
         if opt.wh_weight <= 0:
-          item['bbox'] = mask_utils.toBbox(item['seg'])
+          item['bbox'] = _coco_box_to_bbox(mask_utils.toBbox(item['seg']))
 
 
       if 'hps' in dets:
