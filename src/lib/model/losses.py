@@ -204,7 +204,7 @@ class SegDiceLoss(nn.Module):
         intersection = (iflat * tflat).sum()
         return 1 - ((2. * intersection + smooth) /((iflat*iflat).sum() + (tflat*tflat).sum() + smooth))
 
-    def forward(self, seg_feat, conv_weight, reg, mask,ind, target):
+    def forward(self, seg_feat, conv_weight, reg, mask, ind, target):
         mask_loss=0.
         batch_size = seg_feat.size(0)
         weight = _tranpose_and_gather_feat(conv_weight, ind)
@@ -246,3 +246,19 @@ class SegDiceLoss(nn.Module):
             mask_loss+=self.dice_loss(feat*true_mask,target[i]*true_mask)
 
         return mask_loss/batch_size
+
+class MTLoss(nn.Module):
+    def __init__(self, heads):
+        super(MTLoss, self).__init__()
+        self.heads = heads
+        self.log_vars = {h: nn.Parameter(torch.zeros((1,), requires_grad=True)) for h in heads}
+    def forward(self, losses):
+        loss = 0
+        for h in self.heads:
+          if losses[h] == 0:
+            continue
+          log_var = self.log_vars[h]
+          log_var = log_var.to(losses[h].device)
+          loss += losses[h] * torch.exp(-log_var) + log_var
+        return loss
+
