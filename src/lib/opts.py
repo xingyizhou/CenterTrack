@@ -36,6 +36,8 @@ class opts(object):
                              help='file for seqmap')
     self.parser.add_argument('--load_model', default='',
                              help='path to pretrained model')
+    self.parser.add_argument('--load_best', action='store_true',
+                             help='load best model')
     self.parser.add_argument('--resume', action='store_true',
                              help='resume an experiment. '
                                   'Reloaded the optimizer parameter and '
@@ -336,8 +338,9 @@ class opts(object):
     if not os.path.exists(opt.debug_dir):
       os.makedirs(opt.debug_dir)
 
-    if opt.resume and opt.load_model == '':
-      opt.load_model = os.path.join(opt.save_dir, 'model_last.pth')
+    if opt.resume and opt.load_model == '' :
+      model_name = 'model_best.pth' if opt.load_best else 'model_last.pth'
+      opt.load_model = os.path.join(opt.save_dir, model_name)
     return opt
 
 
