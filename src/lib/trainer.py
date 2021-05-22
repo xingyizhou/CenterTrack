@@ -11,7 +11,7 @@ from model.data_parallel import DataParallel
 from utils.utils import AverageMeter
 
 from model.losses import FastFocalLoss, RegWeightedL1Loss
-from model.losses import BinRotLoss, WeightedBCELoss, SegDiceLoss
+from model.losses import BinRotLoss, WeightedBCELoss, SegDiceLoss, MTLoss
 from model.decode import generic_decode
 from model.utils import _sigmoid, flip_tensor, flip_lr_off, flip_lr
 from utils.debugger import Debugger
@@ -32,6 +32,8 @@ class GenericLoss(torch.nn.Module):
       self.crit_nuscenes_att = WeightedBCELoss()
     if 'seg' in opt.heads:
       self.crit_seg = SegDiceLoss(opt.seg_feat_channel)
+    #if opt.mtl:
+    self.mtl_criterion = MTLoss(opt.heads)
     self.opt = opt
 
   def _sigmoid_output(self, output):
@@ -87,8 +89,11 @@ class GenericLoss(torch.nn.Module):
           batch['ind'], batch['nuscenes_att']) / opt.num_stacks
 
     losses['tot'] = 0
-    for head in opt.heads:
-      losses['tot'] += opt.weights[head] * losses[head]
+    if opt.mtl:
+        losses['tot'] = self.mtl_criterion(losses)
+    else:
+      for head in opt.heads:
+          losses['tot'] += opt.weights[head] * losses[head]
     
     return losses['tot'], losses
 
@@ -123,6 +128,7 @@ class Trainer(object):
         chunk_sizes=chunk_sizes).to(device)
     else:
       self.model_with_loss = self.model_with_loss.to(device)
+
     
     for state in self.optimizer.state.values():
       for k, v in state.items():
