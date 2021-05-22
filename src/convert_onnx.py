@@ -35,7 +35,7 @@ def convert_onnx(opt):
   model = create_model(
       opt.arch, opt.heads, opt.head_conv, opt=opt)
   if opt.load_model != '':
-    model = load_model(model, opt.load_model, opt)
+    model, _, _ = load_model(model, opt.load_model, opt)
   model = model.to(opt.device)
   model.eval()
   dummy_input1 = torch.randn(1, 3, opt.input_h, opt.input_w).to(opt.device)

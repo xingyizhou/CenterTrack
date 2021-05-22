@@ -484,8 +484,9 @@ class GenericDataset(data.Dataset):
       ret['wh'][k] = 1. * w, 1. * h
       ret['wh_mask'][k] = 1
     ret['ind'][k] = ct_int[1] * self.opt.output_w + ct_int[0]
-    ret['reg'][k] = ct - ct_int
-    ret['reg_mask'][k] = 1
+    if 'reg' in ret:
+      ret['reg'][k] = ct - ct_int
+      ret['reg_mask'][k] = 1
     draw_umich_gaussian(ret['hm'][cls_id - 1], ct_int, radius)
 
     gt_det['bboxes'].append(

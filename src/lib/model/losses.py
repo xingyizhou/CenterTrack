@@ -204,11 +204,11 @@ class SegDiceLoss(nn.Module):
         intersection = (iflat * tflat).sum()
         return 1 - ((2. * intersection + smooth) /((iflat*iflat).sum() + (tflat*tflat).sum() + smooth))
 
-    def forward(self, seg_feat, conv_weight, reg, mask, ind, target):
+    def forward(self, seg_feat, conv_weight, mask, ind, target):
         mask_loss=0.
         batch_size = seg_feat.size(0)
         weight = _tranpose_and_gather_feat(conv_weight, ind)
-        reg = _tranpose_and_gather_feat(reg, ind)
+        #reg = _tranpose_and_gather_feat(reg, ind)
         h,w = seg_feat.size(-2),seg_feat.size(-1)
         x0,y0 = ind%w,ind/w
         x = x0
