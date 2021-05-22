@@ -76,13 +76,13 @@ def inference(opt, detector, seqmap, max_frames):
       if is_video:
         _, img = cam.read()
         if img is None:
-          save_and_exit(opt, out, results, out_name)
+          save_and_exit(opt, out, results, out_name, detector.start_epoch)
           return 
       else:
         if cnt < len(image_names):
           img = cv2.imread(image_names[cnt])
         else:
-          save_and_exit(opt, out, results, out_name)
+          save_and_exit(opt, out, results, out_name, detector.start_epoch)
           return 
       cnt += 1
 
@@ -123,8 +123,8 @@ def inference(opt, detector, seqmap, max_frames):
   return 
 
 
-def save_and_exit(opt, out=None, results=None, out_name='default'):
-  save_dir = os.path.join('../results', opt.exp_id)
+def save_and_exit(opt, out=None, results=None, out_name='default', start_epoch=''):
+  save_dir = os.path.join('../results', f"{opt.exp_id}{start_epoch}")
   if not os.path.exists(save_dir):
     os.makedirs(save_dir)
   if (results is not None):

@@ -31,9 +31,10 @@ class Detector(object):
     print('Creating model...')
     self.model = create_model(
       opt.arch, opt.heads, opt.head_conv, opt=opt)
-    self.model = load_model(self.model, opt.load_model, opt)
+    self.model, _, start_epoch = load_model(self.model, opt.load_model, opt)
     self.model = self.model.to(opt.device)
     self.model.eval()
+    self.start_epoch = start_epoch
 
     self.opt = opt
     self.trained_dataset = get_dataset(opt.dataset)

@@ -69,12 +69,12 @@ def load_model(model, model_path, opt, optimizer=None):
       print('No param {}.'.format(k))
       state_dict[k] = model_state_dict[k]
   model.load_state_dict(state_dict, strict=False)
+  start_epoch = checkpoint['epoch']
 
   # resume optimizer parameters
   if optimizer is not None and opt.resume:
     if 'optimizer' in checkpoint:
       # optimizer.load_state_dict(checkpoint['optimizer'])
-      start_epoch = checkpoint['epoch']
       start_lr = opt.lr
       for step in opt.lr_step:
         if start_epoch >= step:
@@ -84,10 +84,9 @@ def load_model(model, model_path, opt, optimizer=None):
       print('Resumed optimizer with start lr', start_lr)
     else:
       print('No optimizer parameters in checkpoint.')
-  if optimizer is not None:
-    return model, optimizer, start_epoch
-  else:
-    return model
+
+  return model, optimizer, start_epoch
+ 
 
 def save_model(path, epoch, model, optimizer=None):
   if isinstance(model, torch.nn.DataParallel):
