@@ -248,9 +248,15 @@ class Trainer(object):
       # Predictions
       for k in range(len(dets['scores'][i])):
         if dets['scores'][i, k] > opt.vis_thresh:
-          debugger.add_coco_bbox(
-            dets['bboxes'][i, k] * opt.down_ratio, dets['clses'][i, k],
-            dets['scores'][i, k], img_id='out_pred')
+
+          if 'seg' in dets:
+             debugger.add_coco_seg(
+              dets['seg'][i, k] , dets['clses'][i, k],
+              dets['scores'][i, k], img_id='out_pred')
+          else:
+            debugger.add_coco_bbox(
+              dets['bboxes'][i, k] * opt.down_ratio, dets['clses'][i, k],
+              dets['scores'][i, k], img_id='out_pred')
 
           if 'ltrb_amodal' in opt.heads:
             debugger.add_coco_bbox(
