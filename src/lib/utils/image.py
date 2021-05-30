@@ -241,3 +241,15 @@ def color_aug(data_rng, image, eig_val, eig_vec):
     for f in functions:
         f(data_rng, image, gs, gs_mean, 0.4)
     lighting_(data_rng, image, 0.1, eig_val, eig_vec)
+
+
+def copy_paste_with_seg_mask(image, image_to_be_paste, seg_mask):
+
+##########
+## TODO ##
+##########
+  return image
+
+def erase_seg_mask_from_image(image, ann):
+
+  return image

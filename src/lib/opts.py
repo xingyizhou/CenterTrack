@@ -209,6 +209,7 @@ class opts(object):
     self.parser.add_argument('--no_color_aug', action='store_true',
                              help='not use the color augmenation '
                                   'from CornerNet')
+    self.parser.add_argument('--rand_erase_seg', type=float, default=0.2)
 
     # Tracking
     self.parser.add_argument('--tracking', action='store_true')
@@ -229,6 +230,8 @@ class opts(object):
     self.parser.add_argument('--zero_tracking', action='store_true')
     self.parser.add_argument('--hungarian', action='store_true')
     self.parser.add_argument('--max_age', type=int, default=-1)
+    self.parser.add_argument('--num_pre_data', type=int, default=1)
+    self.parser.add_argument('--copy_and_paste', action='store_true')
 
     # CondInst
     self.parser.add_argument('--seg_feat_channel', default=8,type=int,
