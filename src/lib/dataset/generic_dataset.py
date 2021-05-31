@@ -90,7 +90,7 @@ class GenericDataset(data.Dataset):
       if np.random.random() < opt.flip:
         flipped = 1
         img = img[:, ::-1, :]
-        anns = self._flip_anns(anns, width)
+        anns = self._flip_anns(anns, height, width)
 
     trans_input = get_affine_transform(
       c, s, rot, [opt.input_w, opt.input_h])
@@ -109,7 +109,7 @@ class GenericDataset(data.Dataset):
         img_info['sensor_id'] if 'sensor_id' in img_info else 1, opt.num_pre_data)
       if flipped:
         pre_images = [pre_image[:, ::-1, :].copy() for pre_image in pre_images]
-        pre_anns = [self._flip_anns(pre_anns, width) for pre_anns in pre_annss]
+        pre_annss = [self._flip_anns(pre_anns, height, width) for pre_anns in pre_annss]
       if opt.same_aug_pre and frame_dists[0] != 0:
         trans_input_pre = trans_input 
         trans_output_pre = trans_output
@@ -147,7 +147,7 @@ class GenericDataset(data.Dataset):
       if 'segmentation' in ann.keys():
         self.coco.imgs[ann['image_id']].update({'height':height, 'width':width})
         seg_mask = self._get_seg_mask_output(
-           ann, trans_output, (opt.output_w, opt.output_h), flipped)
+           ann, trans_output, (opt.output_w, opt.output_h))
         
       if 'bbox' not in ann.keys():
         ann['bbox'] = mask_utils.toBbox(ann['segmentation'])
@@ -224,10 +224,10 @@ class GenericDataset(data.Dataset):
       img_id, pre_frame_id = img_ids[rand_id]
       frame_dist = abs(frame_id - pre_frame_id)
       img, anns, _, _ = self._load_image_anns(img_id, self.coco, self.img_dir)
-      imgs.append(imgs)
+      imgs.append(img)
       annss.append(anns)
       frame_dists.append(frame_dist)
-    return img, anns, frame_dist
+    return imgs, annss, frame_dists
 
 
   def _get_pre_dets(self, pre_imgs, annss, trans_input, trans_output):
@@ -238,13 +238,16 @@ class GenericDataset(data.Dataset):
     pre_hm = np.zeros((1, hm_h, hm_w), dtype=np.float32) if reutrn_hm else None
     pre_cts, track_ids = [], []
     pre_img = copy.deepcopy(pre_imgs[-1])
-    pre_imgs_rev = copy.deepcopy(pre_imgs).reverse() # [n-1, n-2, ...]
-    annss_rev = copy.deepcopy(annss).reverse() # [n-1, n-2, ...]
+    pre_imgs_rev = copy.deepcopy(pre_imgs)
+    pre_imgs_rev.reverse() # [n-1, n-2, ...]
+    annss_rev = copy.deepcopy(annss)
+    annss_rev.reverse() # [n-1, n-2, ...]
     for idx, anns in enumerate(annss_rev):
+      ann_to_be_paste = []
       for i, ann in enumerate(anns):
         cls_id = int(self.cat_ids[ann['category_id']])
         if cls_id > self.opt.num_classes or cls_id <= -99 or \
-          ('iscrowd' in ann and ann['iscrowd'] > 0):
+          ('iscrowd' in ann and ann['iscrowd'] > 0) or cls_id == 0: # cls_id add by vtsai01
           continue
         if 'bbox' not in anns[i].keys():
           ann['bbox'] = mask_utils.toBbox(ann['segmentation'])
@@ -260,13 +263,14 @@ class GenericDataset(data.Dataset):
         non_dup = True if track_id not in track_ids else False
 
         if idx == 0 and np.random.random() < self.opt.rand_erase_seg_ratio and self.opt.copy_and_paste:
-          pre_imgs = erase_seg_mask_from_image(pre_imgs, ann)
+          masks_to_be_erase = self.merge_masks_as_input([ann], trans)
+          pre_img = erase_seg_mask_from_image(pre_img, masks_to_be_erase)
           continue
           
 
         if (h > 0 and w > 0) and non_dup:
           if idx > 0 and self.opt.copy_and_paste: 
-            pre_img = copy_paste_with_seg_mask(pre_img, pre_imgs_rev[idx], ann)
+            ann_to_be_paste.append(ann)
           radius = gaussian_radius((math.ceil(h), math.ceil(w)))
           radius = max(0, int(radius)) 
           max_rad = max(max_rad, radius)
@@ -296,8 +300,20 @@ class GenericDataset(data.Dataset):
             ct2[1] = ct2[1] + np.random.randn() * 0.05 * h 
             ct2_int = ct2.astype(np.int32)
             draw_umich_gaussian(pre_hm[0], ct2_int, radius, k=conf)
-
+      if len(ann_to_be_paste) > 0: 
+        masks_to_be_paste = self.merge_masks_as_input(ann_to_be_paste, trans)
+        pre_img = copy_paste_with_seg_mask(pre_img, pre_imgs_rev[idx], masks_to_be_paste)
     return pre_img, pre_hm, pre_cts, track_ids
+
+  def merge_masks_as_input(self, anns, trans_input):
+      rles = [ann['segmentation'] for ann in anns  if not ann['category_id'] == 10]
+      mgrle = mask_utils.merge(rles)
+      mask = mask_utils.decode(mgrle)
+      inp = cv2.warpAffine(mask, trans_input, 
+                    (self.opt.input_w, self.opt.input_h),
+                    flags=cv2.INTER_LINEAR)
+      return inp
+      
 
   def _get_border(self, border, size):
     i = 1
@@ -331,11 +347,18 @@ class GenericDataset(data.Dataset):
     return c, aug_s, rot
 
 
-  def _flip_anns(self, anns, width):
+  def _flip_anns(self, anns, height, width):
     for k in range(len(anns)):
 
       if 'bbox' not in anns[k].keys():
         anns[k]['bbox'] = mask_utils.toBbox(anns[k]['segmentation'])
+      if 'segmentation' in anns[k].keys():
+        self.coco.imgs[anns[k]['image_id']].update({'height':height, 'width':width})
+        seg_mask = self.coco.annToMask(anns[k])
+        seg_mask = np.asfortranarray(seg_mask[:, ::-1])
+        rev_segmentation = mask_utils.encode(seg_mask)
+        rev_mask_rle = rev_segmentation['counts'].decode("utf-8")
+        anns[k]['segmentation']['counts'] = rev_mask_rle
 
       bbox = anns[k]['bbox']
       anns[k]['bbox'] = [
@@ -462,12 +485,12 @@ class GenericDataset(data.Dataset):
                     dtype=np.float32)
     return bbox
 
-  def _get_seg_mask_output(self, ann, trans_output, output_w_h, flipped=False):
+  def _get_seg_mask_output(self, ann, trans_output, output_w_h):
 
     seg_mask = self.coco.annToMask(ann)
     #seg_mask = mask_utils.decode(ann['segmentation'])
-    if flipped:
-      seg_mask = seg_mask[:, ::-1]
+    #if flipped:
+    #  seg_mask = seg_mask[:, ::-1]
     seg_mask = cv2.warpAffine(seg_mask, trans_output, 
                     output_w_h, flags=cv2.INTER_NEAREST)
 

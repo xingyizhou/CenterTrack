@@ -209,7 +209,7 @@ class opts(object):
     self.parser.add_argument('--no_color_aug', action='store_true',
                              help='not use the color augmenation '
                                   'from CornerNet')
-    self.parser.add_argument('--rand_erase_seg', type=float, default=0.2)
+    self.parser.add_argument('--rand_erase_seg_ratio', type=float, default=0.2)
 
     # Tracking
     self.parser.add_argument('--tracking', action='store_true')

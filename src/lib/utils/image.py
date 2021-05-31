@@ -12,6 +12,8 @@ from __future__ import print_function
 import numpy as np
 import cv2
 import random
+from skimage.filters import gaussian
+
 
 def flip(img):
   return img[:, :, ::-1].copy()  
@@ -243,13 +245,18 @@ def color_aug(data_rng, image, eig_val, eig_vec):
     lighting_(data_rng, image, 0.1, eig_val, eig_vec)
 
 
-def copy_paste_with_seg_mask(image, image_to_be_paste, seg_mask):
+def copy_paste_with_seg_mask(image, image_to_be_paste, seg_mask, blend=True, sigma=5):
+  if seg_mask is not None:
+      if blend:
+          alpha = gaussian(seg_mask, sigma=sigma, preserve_range=True)
 
-##########
-## TODO ##
-##########
+      img_dtype = image.dtype
+      alpha = alpha[..., None]
+      print(alpha.shape)
+      image = image_to_be_paste * alpha + image * (1 - alpha)
+      image = image.astype(img_dtype)
   return image
 
-def erase_seg_mask_from_image(image, ann):
-
+def erase_seg_mask_from_image(image, seg_mask):
+  image = image * (1 - seg_mask[None, :, :])
   return image
