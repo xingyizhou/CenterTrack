@@ -43,8 +43,7 @@ class Tracker(object):
       [pre_det['ct'] for pre_det in self.tracks], np.float32) # M x 2
     dist = (((tracks.reshape(1, -1, 2) - \
               dets.reshape(-1, 1, 2)) ** 2).sum(axis=2)) # N x M
-    #track_size = track_size * 1.2
-    #item_size = item_size * 1.2
+
     invalid = ((dist > track_size.reshape(1, M)) + \
       (dist > item_size.reshape(N, 1)) + \
       (item_cat.reshape(N, 1) != track_cat.reshape(1, M))) > 0

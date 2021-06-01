@@ -13,6 +13,7 @@ import numpy as np
 import cv2
 import random
 from skimage.filters import gaussian
+import torch
 
 
 def flip(img):
@@ -246,15 +247,15 @@ def color_aug(data_rng, image, eig_val, eig_vec):
 
 
 def copy_paste_with_seg_mask(image, image_to_be_paste, seg_mask, blend=True, sigma=5):
+  is_torch = torch.is_tensor(image)
   if seg_mask is not None:
       if blend:
           alpha = gaussian(seg_mask, sigma=sigma, preserve_range=True)
-
       img_dtype = image.dtype
-      alpha = alpha[..., None]
-      print(alpha.shape)
+      alpha = torch.tensor(alpha).type(img_dtype).to(image.device) if is_torch else alpha
+      alpha = alpha[None, ...] if (image.shape[0] == 3 or image.shape[0] == 1) else alpha[..., None]
       image = image_to_be_paste * alpha + image * (1 - alpha)
-      image = image.astype(img_dtype)
+      image = image.type(img_dtype) if is_torch else image.astype(img_dtype)
   return image
 
 def erase_seg_mask_from_image(image, seg_mask):
