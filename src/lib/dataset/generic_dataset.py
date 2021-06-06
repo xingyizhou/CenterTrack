@@ -360,8 +360,8 @@ class GenericDataset(data.Dataset):
         seg_mask = self.coco.annToMask(anns[k])
         seg_mask = np.asfortranarray(seg_mask[:, ::-1])
         rev_segmentation = mask_utils.encode(seg_mask)
-        rev_mask_rle = rev_segmentation['counts'].decode("utf-8")
-        anns[k]['segmentation']['counts'] = rev_mask_rle
+        rev_segmentation['counts'] = rev_segmentation['counts'].decode("utf-8")
+        anns[k]['segmentation'] = rev_segmentation
 
       bbox = anns[k]['bbox']
       anns[k]['bbox'] = [
