@@ -104,9 +104,10 @@ class GenericDataset(data.Dataset):
 
     pre_cts, track_ids = None, None
     if opt.tracking:
+      num_pre_data = opt.num_pre_data if opt.copy_and_paste else 1
       pre_images, pre_annss, frame_dists = self._load_pre_data(
         img_info['video_id'], img_info['frame_id'], 
-        img_info['sensor_id'] if 'sensor_id' in img_info else 1, opt.num_pre_data)
+        img_info['sensor_id'] if 'sensor_id' in img_info else 1, num_pre_data)
       if flipped:
         pre_images = [pre_image[:, ::-1, :].copy() for pre_image in pre_images]
         pre_annss = [self._flip_anns(pre_anns, height, width) for pre_anns in pre_annss]
@@ -209,6 +210,7 @@ class GenericDataset(data.Dataset):
           if abs(img_info['frame_id'] - frame_id) < self.opt.max_frame_dist and \
           (not ('sensor_id' in img_info) or img_info['sensor_id'] == sensor_id)]
     else:
+      num_data = 1
       img_ids = [(img_info['id'], img_info['frame_id']) \
           for img_info in img_infos \
             if (img_info['frame_id'] - frame_id) == -1 and \
@@ -218,7 +220,8 @@ class GenericDataset(data.Dataset):
             for img_info in img_infos \
             if (img_info['frame_id'] - frame_id) == 0 and \
             (not ('sensor_id' in img_info) or img_info['sensor_id'] == sensor_id)]
-    rand_ids = np.random.choice(len(img_ids), num_data)
+    #print('\nlen', len(img_ids))
+    rand_ids = np.random.choice(len(img_ids), num_data, replace=False)
     imgs, annss, frame_dists = [], [], []
     for rand_id in rand_ids:
       img_id, pre_frame_id = img_ids[rand_id]
@@ -262,7 +265,7 @@ class GenericDataset(data.Dataset):
         track_id = ann['track_id'] if 'track_id' in ann else -1
         non_dup = True if track_id not in track_ids else False
 
-        if idx == 0 and np.random.random() < self.opt.rand_erase_seg_ratio and self.opt.copy_and_paste:
+        if idx == 0 and np.random.random() < self.opt.rand_erase_seg_ratio and self.opt.copy_and_paste and 'train' in self.split:
           masks_to_be_erase = self.merge_masks_as_input([ann], trans)
           pre_img = erase_seg_mask_from_image(pre_img, masks_to_be_erase)
           continue

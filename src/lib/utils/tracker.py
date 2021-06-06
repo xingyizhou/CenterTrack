@@ -111,6 +111,9 @@ class Tracker(object):
           track['active'] =  1
           ret.append(track)
     
+    
+    tracks = copy.deepcopy(ret)
+
     for i in unmatched_tracks:
       track = self.tracks[i]
       if track['age'] < self.opt.max_age:
@@ -123,8 +126,8 @@ class Tracker(object):
           bbox[0] + v[0], bbox[1] + v[1],
           bbox[2] + v[0], bbox[3] + v[1]]
         track['ct'] = [ct[0] + v[0], ct[1] + v[1]]
-        ret.append(track)
-    self.tracks = ret
+        tracks.append(track)
+    self.tracks = tracks
     return ret
 
 def greedy_assignment(dist):
