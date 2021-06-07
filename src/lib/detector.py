@@ -150,7 +150,7 @@ class Detector(object):
       # public detection mode in MOT challenge
       public_det = meta['cur_dets'] if self.opt.public_det else None
       # add tracking id to results
-      results = self.tracker.step(results, public_det) # results in is disjoint what's wrong when come out
+      results = self.tracker.step(results, public_det) 
       self.pre_images = images
       self.age_images.append(images.squeeze(0))
       if len(self.age_images) > self.opt.max_age:
@@ -292,7 +292,6 @@ class Detector(object):
            (bbox_out[1] + bbox_out[3]) / 2], dtype=np.int32)
         output_inds.append(ct_out[1] * out_width + ct_out[0])
       if det['age'] > 1 and self.opt.copy_and_paste:
-        print('copy and paste !')
         det['segmentation'] = det['seg']
         masks_to_be_paste = self.merge_masks_as_input([det], trans_input)
         pre_images = copy_paste_with_seg_mask(pre_images.squeeze(0), age_images[-det['age']], masks_to_be_paste)

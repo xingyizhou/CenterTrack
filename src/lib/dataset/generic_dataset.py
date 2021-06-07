@@ -220,7 +220,6 @@ class GenericDataset(data.Dataset):
             for img_info in img_infos \
             if (img_info['frame_id'] - frame_id) == 0 and \
             (not ('sensor_id' in img_info) or img_info['sensor_id'] == sensor_id)]
-    #print('\nlen', len(img_ids))
     rand_ids = np.random.choice(len(img_ids), num_data, replace=False)
     imgs, annss, frame_dists = [], [], []
     for rand_id in rand_ids:
