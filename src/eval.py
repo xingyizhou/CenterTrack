@@ -140,13 +140,15 @@ def save_and_exit(opt, out=None, results=None, out_name='default', start_epoch='
   if opt.save_video and out is not None:
     out.release()
   #sys.exit(0)
-
+coco2kitti = {1: 2, 3: 1}
 def json2mots(opt, results, save_dir):
   with open(save_dir, "w") as fp:
     for time_frame in results.keys():
         for obj in results[time_frame]:
             track_id = str(obj['class']) + "{0:03}".format(obj['tracking_id'])
-            class_id = obj['class']
+            if not opt.dataset == 'kitti_mots' and obj['class'] not in coco2kitti:
+              continue
+            class_id = obj['class'] if opt.dataset == 'kitti_mots' else coco2kitti[int(obj['class'])]
             img_height = obj['seg']['size'][0]
             img_width =  obj['seg']['size'][1]
             seg_rle = obj['seg']['counts']
