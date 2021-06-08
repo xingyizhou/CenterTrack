@@ -43,8 +43,7 @@ class Tracker(object):
       [pre_det['ct'] for pre_det in self.tracks], np.float32) # M x 2
     dist = (((tracks.reshape(1, -1, 2) - \
               dets.reshape(-1, 1, 2)) ** 2).sum(axis=2)) # N x M
-    #track_size = track_size * 1.2
-    #item_size = item_size * 1.2
+
     invalid = ((dist > track_size.reshape(1, M)) + \
       (dist > item_size.reshape(N, 1)) + \
       (item_cat.reshape(N, 1) != track_cat.reshape(1, M))) > 0
@@ -112,6 +111,9 @@ class Tracker(object):
           track['active'] =  1
           ret.append(track)
     
+    
+    tracks = copy.deepcopy(ret)
+
     for i in unmatched_tracks:
       track = self.tracks[i]
       if track['age'] < self.opt.max_age:
@@ -124,8 +126,8 @@ class Tracker(object):
           bbox[0] + v[0], bbox[1] + v[1],
           bbox[2] + v[0], bbox[3] + v[1]]
         track['ct'] = [ct[0] + v[0], ct[1] + v[1]]
-        ret.append(track)
-    self.tracks = ret
+        tracks.append(track)
+    self.tracks = tracks
     return ret
 
 def greedy_assignment(dist):

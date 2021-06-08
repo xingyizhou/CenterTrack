@@ -20,6 +20,8 @@ from utils.debugger import Debugger
 from utils.tracker import Tracker
 from dataset.dataset_factory import get_dataset
 
+import pycocotools.mask as mask_utils
+from utils.image import erase_seg_mask_from_image, copy_paste_with_seg_mask
 
 class Detector(object):
   def __init__(self, opt):
@@ -49,6 +51,7 @@ class Detector(object):
     self.cnt = 0
     self.pre_images = None
     self.pre_image_ori = None
+    self.age_images = []
     self.tracker = Tracker(opt)
     self.debugger = Debugger(opt=opt, dataset=self.trained_dataset)
 
@@ -108,8 +111,9 @@ class Detector(object):
           # pre_inds is not used in the current version.
           # We used pre_inds for learning an offset from previous image to
           # the current image.
-          pre_hms, pre_inds = self._get_additional_inputs(
-            self.tracker.tracks, meta, with_hm=not self.opt.zero_pre_hm)
+          pre_images, pre_hms, pre_inds = self._get_additional_inputs(
+            self.tracker.tracks, meta, self.pre_images, self.age_images, with_hm=not self.opt.zero_pre_hm)
+          self.pre_images = pre_images
       
       pre_process_time = time.time()
       pre_time += pre_process_time - scale_start_time
@@ -146,8 +150,11 @@ class Detector(object):
       # public detection mode in MOT challenge
       public_det = meta['cur_dets'] if self.opt.public_det else None
       # add tracking id to results
-      results = self.tracker.step(results, public_det)
+      results = self.tracker.step(results, public_det) 
       self.pre_images = images
+      self.age_images.append(images.squeeze(0))
+      if len(self.age_images) > self.opt.max_age:
+        self.age_images.pop(0)
 
     tracking_time = time.time()
     track_time += tracking_time - end_time
@@ -255,7 +262,7 @@ class Detector(object):
     return bbox
 
 
-  def _get_additional_inputs(self, dets, meta, with_hm=True):
+  def _get_additional_inputs(self, dets, meta, pre_images, age_images, with_hm=True):
     '''
     Render input heatmap from previous trackings.
     '''
@@ -266,7 +273,7 @@ class Detector(object):
 
     output_inds = []
     for det in dets:
-      if det['score'] < self.opt.pre_thresh or det['active'] == 0:
+      if det['score'] < self.opt.pre_thresh: #or det['active'] == 0:
         continue
       bbox = self._trans_bbox(det['bbox'], trans_input, inp_width, inp_height)
       bbox_out = self._trans_bbox(
@@ -284,15 +291,30 @@ class Detector(object):
           [(bbox_out[0] + bbox_out[2]) / 2, 
            (bbox_out[1] + bbox_out[3]) / 2], dtype=np.int32)
         output_inds.append(ct_out[1] * out_width + ct_out[0])
+      if det['age'] > 1 and self.opt.copy_and_paste:
+        det['segmentation'] = det['seg']
+        masks_to_be_paste = self.merge_masks_as_input([det], trans_input)
+        pre_images = copy_paste_with_seg_mask(pre_images.squeeze(0), age_images[-det['age']], masks_to_be_paste)
+        pre_images = pre_images.unsqueeze(0)
+
     if with_hm:
       input_hm = input_hm[np.newaxis]
       if self.opt.flip_test:
         input_hm = np.concatenate((input_hm, input_hm[:, :, :, ::-1]), axis=0)
       input_hm = torch.from_numpy(input_hm).to(self.opt.device)
+    
     output_inds = np.array(output_inds, np.int64).reshape(1, -1)
     output_inds = torch.from_numpy(output_inds).to(self.opt.device)
-    return input_hm, output_inds
+    return pre_images, input_hm, output_inds
 
+  def merge_masks_as_input(self, anns, trans_input):
+      rles = [ann['segmentation'] for ann in anns]
+      mgrle = mask_utils.merge(rles)
+      mask = mask_utils.decode(mgrle)
+      inp = cv2.warpAffine(mask, trans_input, 
+                    (self.opt.input_w, self.opt.input_h),
+                    flags=cv2.INTER_LINEAR)
+      return inp
 
   def _get_default_calib(self, width, height):
     calib = np.array([[self.rest_focal_length, 0, width / 2, 0], 

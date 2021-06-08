@@ -65,7 +65,8 @@ def main(opt):
     val_loader = torch.utils.data.DataLoader(
       Dataset(opt, 'val'), batch_size=opt.batch_size, shuffle=False, num_workers=1,
       pin_memory=True)
-    best_val_loss = load_best_val_loss(opt, model, optimizer, val_loader)
+    if not opt.not_load_best_val_loss:
+      best_val_loss = load_best_val_loss(opt, model, optimizer, val_loader)
 
     if opt.test:
       _, preds = trainer.val(0, val_loader)
