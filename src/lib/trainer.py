@@ -250,9 +250,9 @@ class Trainer(object):
         if dets['scores'][i, k] > opt.vis_thresh:
 
           if 'seg' in dets:
-             debugger.add_coco_seg(
+            debugger.add_coco_seg(
               dets['seg'][i, k] , dets['clses'][i, k],
-              dets['scores'][i, k], img_id='out_pred')
+              dets['scores'][i, k], down_ratio=opt.down_ratio, img_id='out_pred')
           else:
             debugger.add_coco_bbox(
               dets['bboxes'][i, k] * opt.down_ratio, dets['clses'][i, k],

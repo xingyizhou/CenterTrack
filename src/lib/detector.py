@@ -435,11 +435,15 @@ class Detector(object):
         if 'active' in results[j] and results[j]['active'] == 0:
           continue
         item = results[j]
-        if ('bbox' in item):
-          sc = item['score'] if self.opt.demo == '' or \
-            not ('tracking_id' in item) else item['tracking_id']
-          sc = item['tracking_id'] if self.opt.show_track_color else sc
-          
+
+        sc = item['score'] if self.opt.demo == '' or \
+          not ('tracking_id' in item) else item['tracking_id']
+        sc = item['tracking_id'] if self.opt.show_track_color else sc
+        if ('seg' in item):
+          seg_mask = mask_utils.decode(item['seg'])
+          debugger.add_coco_seg(
+            seg_mask, item['class'] - 1, sc, img_id='generic')
+        elif ('bbox' in item):
           debugger.add_coco_bbox(
             item['bbox'], item['class'] - 1, sc, img_id='generic')
 

@@ -9,6 +9,7 @@ import time
 import numpy as np
 import cv2
 from .ddd_utils import compute_box_3d, project_to_image, draw_box_3d
+from skimage import measure
 #from skimage import color
 
 
@@ -179,40 +180,41 @@ class Debugger(object):
 
 
   def add_coco_seg(self, seg, cat, conf=1, show_txt=True, 
-    no_bbox=False, img_id='default'): 
+    no_bbox=False, img_id='default', down_ratio=1): 
     """
-     Not done yet.
+     add segmentation mask on img
     """
-    return
-    # if self.opt.show_track_color:
-    #   track_id = int(conf)
-    #   if not (track_id in self.track_color):
-    #     self.track_color[track_id] = self._get_rand_color()
-    #   c = self.track_color[track_id]
-    # #seg = (np.asfortranarray(cv2.warpAffine(seg, trans, (width, height),
-		# #		   flags=cv2.INTER_CUBIC) > 0.5).astype(np.uint8))
-    # cat = int(cat)
-    # c = self.colors[cat][0][0].tolist()
-    # if self.theme == 'white':
-    #   c = (255 - np.array(c)).tolist()
-    # if self.opt.tango_color:
-    #   c = (255 - tango_color_dark[cat][0][0]).tolist()
-    # if conf >= 1:
-    #   ID = int(conf) if not self.opt.not_show_number else ''
-    #   txt = '{}{}'.format(self.names[cat], ID)
-    # else:
-    #   txt = '{}{:.1f}'.format(self.names[cat], conf)
-    # thickness = 2
-    # fontsize = 0.8 if self.opt.qualitative else 0.5
-    # if not self.opt.not_show_bbox:
-    #   font = cv2.FONT_HERSHEY_SIMPLEX
-    #   cat_size = cv2.getTextSize(txt, font, fontsize, thickness)[0]
-    #   #if not no_bbox:
-    #   #  self.imgs[img_id] = color.label2rgb(seg, self.imgs[img_id])
-        
-    #   if show_txt:
-    #     cv2.putText(self.imgs[img_id], txt, (bbox[0], bbox[1] - thickness - 1), 
-    #                 font, fontsize, (0, 0, 0), thickness=1, lineType=cv2.LINE_AA)
+    if self.opt.show_track_color:
+      track_id = int(conf)
+      if not (track_id in self.track_color):
+        self.track_color[track_id] = self._get_rand_color()
+      c = self.track_color[track_id]
+    contours = measure.find_contours(array=seg, level=0.5)
+    pts = [(np.flip(c.reshape((-1, 1, 2)), axis=2)/down_ratio).astype(np.int32) for c in contours]
+    y, x = np.unravel_index(np.argmax(seg, axis=None), seg.shape)
+    y, x = int(y/down_ratio), int(x/down_ratio)
+    cat = int(cat)
+    c = self.colors[cat][0][0].tolist()
+    if self.theme == 'white':
+      c = (255 - np.array(c)).tolist()
+    if self.opt.tango_color:
+      c = (255 - tango_color_dark[cat][0][0]).tolist()
+    if conf >= 1:
+      ID = int(conf) if not self.opt.not_show_number else ''
+      txt = '{}{}'.format(self.names[cat], ID)
+    else:
+      txt = '{}{:.1f}'.format(self.names[cat], conf)
+    thickness = 1
+    fontsize = 0.8 if self.opt.qualitative else 0.5
+    if not self.opt.not_show_bbox:
+      font = cv2.FONT_HERSHEY_SIMPLEX
+      cat_size = cv2.getTextSize(txt, font, fontsize, thickness)[0]
+      if not no_bbox:
+        cv2.polylines(
+          self.imgs[img_id], pts,  color=c, isClosed=True,thickness=thickness)
+      if show_txt:
+        cv2.putText(self.imgs[img_id], txt, (x, y - thickness - 1), 
+                    font, fontsize, (0, 0, 0), thickness=1, lineType=cv2.LINE_AA)
 
   def add_tracking_id(self, ct, tracking_id, img_id='default'):
     txt = '{}'.format(tracking_id)
