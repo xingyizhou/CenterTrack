@@ -19,8 +19,7 @@ class KITTIMOTS(GenericDataset):
   class_name = ['Car', 'Pedestrian']
   # negative id is for "not as negative sample for abs(id)".
   # 0 for ignore losses for all categories in the bounding box region
-  # ['Pedestrian', 'Car', 'Cyclist', 'Van', 'Truck',  'Person_sitting',
-  #       'Tram', 'Misc', 'DontCare']
+  # ['Car', Pedestrian']
   cat_ids = {1:1, 2:2, 10:0}
   max_objs = 50
   def __init__(self, opt, split):

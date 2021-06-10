@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import torch
 
-from pycocotools import mask as cocomask
+from pycocotools import mask as mask_utils
 import copy
 import numpy as np
 
@@ -28,8 +28,10 @@ class AverageMeter(object):
 
 def make_disjoint(objects, strategy):
     def get_max_y(obj):
-        _, y, _, h = cocomask.toBbox(obj['seg'])
+        _, y, _, h = mask_utils.toBbox(obj['seg'])
         return y + h
+    def get_area(obj):
+        return mask_utils.area(obj['seg'])
 
     if len(objects) == 0:
         return []
@@ -37,20 +39,24 @@ def make_disjoint(objects, strategy):
         objects_sorted = sorted(objects, key=lambda x: get_max_y(x), reverse=True)
     elif strategy == "score":
         objects_sorted = sorted(objects, key=lambda x: x['score'], reverse=True)
+    elif strategy == "area":
+        objects_sorted = sorted(objects, key=lambda x: get_area(x), reverse=False)
+    elif strategy == "class":
+        objects_sorted = sorted(objects, key=lambda x: x['class'], reverse=True)
     else:
         assert False, "Unknown mask_disjoint_strategy"
     objects_disjoint = copy.deepcopy(objects_sorted)
     used_pixels = objects_sorted[0]['seg']
     for i, obj in enumerate(objects_sorted[1:], start=1):
         new_mask = obj['seg']
-        if cocomask.area(cocomask.merge([used_pixels, obj['seg']], intersect=True)) > 0.0:
-            obj_mask_decoded = cocomask.decode(obj['seg'])
-            used_pixels_decoded = cocomask.decode(used_pixels)
+        if mask_utils.area(mask_utils.merge([used_pixels, obj['seg']], intersect=True)) > 0.0:
+            obj_mask_decoded = mask_utils.decode(obj['seg'])
+            used_pixels_decoded = mask_utils.decode(used_pixels)
             obj_mask_decoded[np.where(used_pixels_decoded > 0)] = 0
-            new_mask = cocomask.encode(obj_mask_decoded)
+            new_mask = mask_utils.encode(obj_mask_decoded)
             new_mask_rle = new_mask['counts'].decode("utf-8")
             objects_disjoint[i]['seg']['counts'] = new_mask_rle
-        used_pixels = cocomask.merge([used_pixels, obj['seg']], intersect=False)
+        used_pixels = mask_utils.merge([used_pixels, obj['seg']], intersect=False)
         
 
 

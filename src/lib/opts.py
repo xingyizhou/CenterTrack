@@ -184,7 +184,9 @@ class opts(object):
                                   '3dop | subcnn')
     self.parser.add_argument('--test_focal_length', type=int, default=-1)
     self.parser.add_argument('--dir_suffix', default=None)
-
+    self.parser.add_argument('--disjoint_strategy', default='score',
+                             help='different strategy when handling segmentation mask disjoint: '
+                                  'area | score | y_pos')
 
     # dataset
     self.parser.add_argument('--not_rand_crop', action='store_true',
