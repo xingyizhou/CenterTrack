@@ -475,12 +475,21 @@ class GenericDataset(data.Dataset):
                                           int(bbox[0]): int(bbox[2]) + 1])
 
   def _mask_ignore_or_crowd_seg(self, ret, cls_id, seg_mask):
-    # mask out crowd region, only rectangular mask is supported
+    # mask out crowd region, only rectangular mask is support
+
     if cls_id == 0: # ignore all classes
-      ret['hm'] = ret['hm'][:] + seg_mask[np.newaxis, :]
+      self._ignore_region(ret['hm'][:, seg_mask.astype(np.bool)])
     else:
       # mask out one specific class
-      ret['hm'][abs(cls_id) - 1, :] = ret['hm'][abs(cls_id) - 1, :] + seg_mask
+      self._ignore_region(ret['hm'][abs(cls_id) - 1, seg_mask.astype(np.bool)])
+
+  # def _mask_ignore_or_crowd_seg(self, ret, cls_id, seg_mask):
+  #   # mask out crowd region, only rectangular mask is supported
+  #   if cls_id == 0: # ignore all classes
+  #     ret['hm'] = ret['hm'][:] + seg_mask[np.newaxis, :]
+  #   else:
+  #     # mask out one specific class
+  #     ret['hm'][abs(cls_id) - 1, :] = ret['hm'][abs(cls_id) - 1, :] + seg_mask
 
   def _coco_box_to_bbox(self, box):
     bbox = np.array([box[0], box[1], box[0] + box[2], box[1] + box[3]],

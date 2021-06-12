@@ -79,6 +79,9 @@ class Tracker(object):
       track['tracking_id'] = self.tracks[m[1]]['tracking_id']
       track['age'] = 1
       track['active'] = self.tracks[m[1]]['active'] + 1
+      #######################  Waiting for test  ##########################
+      #track['score'] = (track['score'] + self.tracks[m[1]]['score']) / 2.0
+      #####################################################################
       ret.append(track)
 
     if self.opt.public_det and len(unmatched_dets) > 0:

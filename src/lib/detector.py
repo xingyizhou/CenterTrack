@@ -262,7 +262,7 @@ class Detector(object):
     return bbox
 
 
-  def _get_additional_inputs(self, dets, meta, pre_images, age_images, with_hm=True):
+  def _get_additional_inputs(self, tracks, meta, pre_images, age_images, with_hm=True):
     '''
     Render input heatmap from previous trackings.
     '''
@@ -272,12 +272,12 @@ class Detector(object):
     input_hm = np.zeros((1, inp_height, inp_width), dtype=np.float32)
 
     output_inds = []
-    for det in dets:
-      if det['score'] < self.opt.pre_thresh: #or det['active'] == 0:
+    for track in tracks:
+      if track['score'] < self.opt.pre_thresh: #or det['active'] == 0:
         continue
-      bbox = self._trans_bbox(det['bbox'], trans_input, inp_width, inp_height)
+      bbox = self._trans_bbox(track['bbox'], trans_input, inp_width, inp_height)
       bbox_out = self._trans_bbox(
-        det['bbox'], trans_output, out_width, out_height)
+        track['bbox'], trans_output, out_width, out_height)
       h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
       if (h > 0 and w > 0):
         radius = gaussian_radius((math.ceil(h), math.ceil(w)))
@@ -291,10 +291,10 @@ class Detector(object):
           [(bbox_out[0] + bbox_out[2]) / 2, 
            (bbox_out[1] + bbox_out[3]) / 2], dtype=np.int32)
         output_inds.append(ct_out[1] * out_width + ct_out[0])
-      if det['age'] > 1 and self.opt.copy_and_paste:
-        det['segmentation'] = det['seg']
-        masks_to_be_paste = self.merge_masks_as_input([det], trans_input)
-        pre_images = copy_paste_with_seg_mask(pre_images.squeeze(0), age_images[-det['age']], masks_to_be_paste)
+      if track['age'] > 1 and self.opt.copy_and_paste:
+        track['segmentation'] = track['seg']
+        masks_to_be_paste = self.merge_masks_as_input([track], trans_input)
+        pre_images = copy_paste_with_seg_mask(pre_images.squeeze(0), age_images[-track['age']], masks_to_be_paste)
         pre_images = pre_images.unsqueeze(0)
 
     if with_hm:
