@@ -457,31 +457,33 @@ class GenericDataset(data.Dataset):
 
 
   def _ignore_region(self, region, ignore_val=1):
-    np.maximum(region, ignore_val, out=region)
+    return np.maximum(region, ignore_val)
 
 
   def _mask_ignore_or_crowd(self, ret, cls_id, bbox):
     # mask out crowd region, only rectangular mask is supported
     if cls_id == 0: # ignore all classes
-      self._ignore_region(ret['hm'][:, int(bbox[1]): int(bbox[3]) + 1, 
+      ret['hm'][:, int(bbox[1]): int(bbox[3]) + 1, int(bbox[0]): int(bbox[2]) + 1] = \
+        self._ignore_region(ret['hm'][:, int(bbox[1]): int(bbox[3]) + 1, \
                                         int(bbox[0]): int(bbox[2]) + 1])
     else:
       # mask out one specific class
-      self._ignore_region(ret['hm'][abs(cls_id) - 1, 
-                                    int(bbox[1]): int(bbox[3]) + 1, 
+      ret['hm'][abs(cls_id) - 1, int(bbox[1]): int(bbox[3]) + 1, int(bbox[0]): int(bbox[2]) + 1] = \
+                      self._ignore_region(ret['hm'][abs(cls_id) - 1, \
+                                    int(bbox[1]): int(bbox[3]) + 1,  \
                                     int(bbox[0]): int(bbox[2]) + 1])
     if ('hm_hp' in ret) and cls_id <= 1:
-      self._ignore_region(ret['hm_hp'][:, int(bbox[1]): int(bbox[3]) + 1, 
+      ret['hm_hp'][:, int(bbox[1]): int(bbox[3]) + 1, int(bbox[0]): int(bbox[2]) + 1] = \
+                      self._ignore_region(ret['hm_hp'][:, int(bbox[1]): int(bbox[3]) + 1, \
                                           int(bbox[0]): int(bbox[2]) + 1])
 
   def _mask_ignore_or_crowd_seg(self, ret, cls_id, seg_mask):
     # mask out crowd region, only rectangular mask is support
-
     if cls_id == 0: # ignore all classes
-      self._ignore_region(ret['hm'][:, seg_mask.astype(np.bool)])
+      ret['hm'][:, seg_mask.astype(np.bool)] = self._ignore_region(ret['hm'][:, seg_mask.astype(np.bool)])
     else:
       # mask out one specific class
-      self._ignore_region(ret['hm'][abs(cls_id) - 1, seg_mask.astype(np.bool)])
+      ret['hm'][abs(cls_id) - 1, seg_mask.astype(np.bool)] = self._ignore_region(ret['hm'][abs(cls_id) - 1, seg_mask.astype(np.bool)])
 
   # def _mask_ignore_or_crowd_seg(self, ret, cls_id, seg_mask):
   #   # mask out crowd region, only rectangular mask is supported
