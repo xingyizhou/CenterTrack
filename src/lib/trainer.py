@@ -119,7 +119,7 @@ class Trainer(object):
     self.loss_stats, self.loss = self._get_losses(opt)
     self.model_with_loss = ModleWithLoss(model, self.loss)
     ts = datetime.datetime.now().strftime("%m%d-%H%M")
-    self.writer = SummaryWriter(f'runs/{opt.task}-{opt.exp_id}-{ts}') if tb_writer else None
+    self.writer = SummaryWriter(f'/home/master/08/vtsai01/CenMOTS/runs/{opt.task}-{opt.exp_id}-{ts}') if tb_writer else None
 
   def set_device(self, gpus, chunk_sizes, device):
     if len(gpus) > 1:
