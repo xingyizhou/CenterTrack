@@ -125,7 +125,7 @@ def inference(opt, detector, seqmap, max_frames):
 
 def save_and_exit(opt, out=None, results=None, out_name='default', start_epoch=''):
   dirname = f"{opt.exp_id}{start_epoch}" if opt.dir_suffix is None else f"{opt.exp_id}{start_epoch}-{opt.dir_suffix}"
-  save_dir = os.path.join('../results/', dirname, 'data')
+  save_dir = os.path.join('/home/master/08/vtsai01/CenMOTS/results/', dirname, 'data')
   if not os.path.exists(save_dir):
     os.makedirs(save_dir)
   if (results is not None):
