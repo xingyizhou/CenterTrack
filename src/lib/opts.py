@@ -225,7 +225,7 @@ class opts(object):
     self.parser.add_argument('--pre_thresh', type=float, default=-1)
     self.parser.add_argument('--track_thresh', type=float, default=0.3)
     self.parser.add_argument('--new_thresh', type=float, default=0.3)
-    self.parser.add_argument('--max_frame_dist', type=int, default=3)
+    self.parser.add_argument('--max_frame_dist', type=int, default=3) # larger?
     self.parser.add_argument('--ltrb_amodal', action='store_true')
     self.parser.add_argument('--ltrb_amodal_weight', type=float, default=0.1)
     self.parser.add_argument('--public_det', action='store_true')
@@ -298,7 +298,7 @@ class opts(object):
       [int(i) for i in opt.ignore_loaded_cats.split(',')] \
       if opt.ignore_loaded_cats != '' else []
 
-    opt.num_workers = max(opt.num_workers, 2 * len(opt.gpus))
+    #opt.num_workers = max(opt.num_workers, 2 * len(opt.gpus))
     opt.pre_img = False
     if 'tracking' in opt.task:
       print('Running tracking')
