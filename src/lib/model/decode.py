@@ -130,7 +130,7 @@ def generic_decode(output, K=100, opt=None):
   heat = output['hm']
   batch, cat, height, width = heat.size()
 
-  heat = _nms(heat)
+  heat = _nms(heat, kernel=opt.nms_kernel)
   scores, inds, clses, ys0, xs0 = _topk(heat, K=K)
 
   clses  = clses.view(batch, K)

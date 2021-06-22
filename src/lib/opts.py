@@ -187,6 +187,7 @@ class opts(object):
     self.parser.add_argument('--disjoint_strategy', default='score',
                              help='different strategy when handling segmentation mask disjoint: '
                                   'area | score | y_pos | class')
+    self.parser.add_argument('--nms_kernel', type=int, default=3)
 
     # dataset
     self.parser.add_argument('--not_rand_crop', action='store_true',
