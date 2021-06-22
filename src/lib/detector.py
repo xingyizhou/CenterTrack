@@ -282,8 +282,12 @@ class Detector(object):
       if (h > 0 and w > 0):
         radius = gaussian_radius((math.ceil(h), math.ceil(w)))
         radius = max(0, int(radius))
-        ct = np.array(
-          [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
+        if 'seg' in self.opt.task  and self.opt.seg_center:
+          seg_mask = self.get_masks_as_input(ann, trans)
+          ct = np.array([np.mean(np.where(seg_mask>=0.5)[1]), np.mean(np.where(seg_mask>=0.5)[0])], dtype=np.float32)
+        else:
+          ct = np.array(
+            [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
         ct_int = ct.astype(np.int32)
         if with_hm:
           draw_umich_gaussian(input_hm[0], ct_int, radius)
@@ -311,6 +315,13 @@ class Detector(object):
       rles = [ann['segmentation'] for ann in anns]
       mgrle = mask_utils.merge(rles)
       mask = mask_utils.decode(mgrle)
+      inp = cv2.warpAffine(mask, trans_input, 
+                    (self.opt.input_w, self.opt.input_h),
+                    flags=cv2.INTER_LINEAR)
+      return inp
+  def get_masks_as_input(self, ann, trans_input):
+      rle = ann['segmentation']
+      mask = mask_utils.decode(rle)
       inp = cv2.warpAffine(mask, trans_input, 
                     (self.opt.input_w, self.opt.input_h),
                     flags=cv2.INTER_LINEAR)
