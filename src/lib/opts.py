@@ -214,6 +214,8 @@ class opts(object):
                              help='not use the color augmenation '
                                   'from CornerNet')
     self.parser.add_argument('--rand_erase_seg_ratio', type=float, default=0.2)
+    self.parser.add_argument('--seg_center', action='store_true',
+                             help='use center of mass of segmentation mask instead of bbox center')
 
     # Tracking
     self.parser.add_argument('--tracking', action='store_true')

@@ -526,8 +526,11 @@ class GenericDataset(data.Dataset):
       return
     radius = gaussian_radius((math.ceil(h), math.ceil(w)))
     radius = max(0, int(radius)) 
-    ct = np.array(
-      [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
+    if 'seg' in self.opt.task and seg_mask is not None and self.opt.seg_center:
+      ct = np.array(np.mean(np.where(seg_mask>=0.5)[0]),  np.mean(np.where(seg_mask>=0.5)[0]), dtype=np.float32)
+    else:
+      ct = np.array(
+        [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
     ct_int = ct.astype(np.int32)
     ret['cat'][k] = cls_id - 1
     ret['mask'][k] = 1
@@ -558,7 +561,6 @@ class GenericDataset(data.Dataset):
     
     if 'seg' in self.opt.task and seg_mask is not None:
       ret['seg_mask'][k] = seg_mask
-
 
     if 'ltrb' in self.opt.heads:
       ret['ltrb'][k] = bbox[0] - ct_int[0], bbox[1] - ct_int[1], \
