@@ -273,13 +273,21 @@ class GenericDataset(data.Dataset):
           
 
         if (h > 0 and w > 0) and non_dup:
+          if 'seg' in self.opt.task  and self.opt.seg_center:
+            seg_mask = self.get_masks_as_input(ann, trans)
+            if np.sum(seg_mask) <= 0:
+              continue
+            ct = np.array([np.mean(np.where(seg_mask>=0.5)[1]), np.mean(np.where(seg_mask>=0.5)[0])], dtype=np.float32)
+          else:
+            ct = np.array(
+              [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
+
           if idx > 0 and self.opt.copy_and_paste: 
             ann_to_be_paste.append(ann)
           radius = gaussian_radius((math.ceil(h), math.ceil(w)))
           radius = max(0, int(radius)) 
           max_rad = max(max_rad, radius)
-          ct = np.array(
-            [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
+          
           ct0 = ct.copy()
           conf = 1
 
@@ -317,7 +325,13 @@ class GenericDataset(data.Dataset):
                     (self.opt.input_w, self.opt.input_h),
                     flags=cv2.INTER_LINEAR)
       return inp
-      
+  def get_masks_as_input(self, ann, trans_input):
+      rle = ann['segmentation']
+      mask = mask_utils.decode(rle)
+      inp = cv2.warpAffine(mask, trans_input, 
+                    (self.opt.input_w, self.opt.input_h),
+                    flags=cv2.INTER_LINEAR)
+      return inp
 
   def _get_border(self, border, size):
     i = 1
@@ -487,14 +501,6 @@ class GenericDataset(data.Dataset):
       # mask out one specific class
       ret['hm'][abs(cls_id) - 1, seg_mask.astype(np.bool)] = self._ignore_region(ret['hm'][abs(cls_id) - 1, seg_mask.astype(np.bool)])
 
-  # def _mask_ignore_or_crowd_seg(self, ret, cls_id, seg_mask):
-  #   # mask out crowd region, only rectangular mask is supported
-  #   if cls_id == 0: # ignore all classes
-  #     ret['hm'] = ret['hm'][:] + seg_mask[np.newaxis, :]
-  #   else:
-  #     # mask out one specific class
-  #     ret['hm'][abs(cls_id) - 1, :] = ret['hm'][abs(cls_id) - 1, :] + seg_mask
-
   def _coco_box_to_bbox(self, box):
     bbox = np.array([box[0], box[1], box[0] + box[2], box[1] + box[3]],
                     dtype=np.float32)
@@ -530,12 +536,15 @@ class GenericDataset(data.Dataset):
     self, ret, gt_det, k, cls_id, bbox, bbox_amodal, ann, trans_output,
     aug_s, calib, seg_mask=None, pre_cts=None, track_ids=None):
     h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
-    if h <= 0 or w <= 0:
+    if h <= 0 or w <= 0 or (seg_mask is not None and np.sum(seg_mask)<=0):
       return
     radius = gaussian_radius((math.ceil(h), math.ceil(w)))
     radius = max(0, int(radius)) 
-    ct = np.array(
-      [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
+    if 'seg' in self.opt.task and seg_mask is not None and self.opt.seg_center:
+      ct = np.array([np.mean(np.where(seg_mask>=0.5)[1]), np.mean(np.where(seg_mask>=0.5)[0])], dtype=np.float32)
+    else:
+      ct = np.array(
+        [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
     ct_int = ct.astype(np.int32)
     ret['cat'][k] = cls_id - 1
     ret['mask'][k] = 1
@@ -565,11 +574,7 @@ class GenericDataset(data.Dataset):
         gt_det['tracking'].append(np.zeros(2, np.float32))
     
     if 'seg' in self.opt.task and seg_mask is not None:
-      # print('seg_mask')
-      # cv2.imwrite(f'./tmp/dataset_{k}.jpg', seg_mask)
-
       ret['seg_mask'][k] = seg_mask
-
 
     if 'ltrb' in self.opt.heads:
       ret['ltrb'][k] = bbox[0] - ct_int[0], bbox[1] - ct_int[1], \

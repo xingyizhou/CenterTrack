@@ -107,6 +107,7 @@ class opts(object):
     self.parser.add_argument('--msra_outchannel', type=int, default=256)
     self.parser.add_argument('--efficient_level', type=int, default=0)
     self.parser.add_argument('--prior_bias', type=float, default=-4.6) # -2.19
+    self.parser.add_argument('--mots_use_all_head', action='store_true')
 
     # input
     self.parser.add_argument('--input_res', type=int, default=-1, 
@@ -214,6 +215,8 @@ class opts(object):
                              help='not use the color augmenation '
                                   'from CornerNet')
     self.parser.add_argument('--rand_erase_seg_ratio', type=float, default=0.2)
+    self.parser.add_argument('--seg_center', action='store_true',
+                             help='use center of mass of segmentation mask instead of bbox center')
 
     # Tracking
     self.parser.add_argument('--tracking', action='store_true')
@@ -377,7 +380,9 @@ class opts(object):
         'seg': opt.seg_feat_channel,
         'conv_weight': 2*opt.seg_feat_channel**2 + 5*opt.seg_feat_channel + 1,
         })
-
+      if not opt.mots_use_all_head:
+        opt.wh_weight = 0
+        opt.off_weight = 0
     if 'ddd' in opt.task:
       opt.heads.update({'dep': 1, 'rot': 8, 'dim': 3, 'amodel_offset': 2})
     
