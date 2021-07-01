@@ -283,7 +283,7 @@ class Detector(object):
         radius = gaussian_radius((math.ceil(h), math.ceil(w)))
         radius = max(0, int(radius))
         if 'seg' in self.opt.task  and self.opt.seg_center:
-          seg_mask = self.get_masks_as_input(ann, trans)
+          seg_mask = self.get_masks_as_input(track, trans_input)
           ct = np.array([np.mean(np.where(seg_mask>=0.5)[1]), np.mean(np.where(seg_mask>=0.5)[0])], dtype=np.float32)
         else:
           ct = np.array(
@@ -320,7 +320,7 @@ class Detector(object):
                     flags=cv2.INTER_LINEAR)
       return inp
   def get_masks_as_input(self, ann, trans_input):
-      rle = ann['segmentation']
+      rle = ann['seg']
       mask = mask_utils.decode(rle)
       inp = cv2.warpAffine(mask, trans_input, 
                     (self.opt.input_w, self.opt.input_h),
