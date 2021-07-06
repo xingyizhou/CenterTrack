@@ -4,5 +4,5 @@
 	branch = master
 [submodule "src/lib/model/networks/DCNv2"]
 	path = src/lib/model/networks/DCNv2
-	url = https://github.com/CharlesShang/DCNv2/
+	url = https://github.com/jinfagang/DCNv2_latest
 	branch = master
