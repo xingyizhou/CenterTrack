@@ -10,7 +10,7 @@ class Tracker(object):
 
   def init_track(self, results):
     for item in results:
-      if item['score'] > self.opt.new_thresh:
+      if item['score'] > self.opt.new_thresh[item['class']-1]:
         self.id_count += 1
         # active and age are never used in the paper
         item['active'] = 1
@@ -97,7 +97,7 @@ class Tracker(object):
         if dist3[i, j] < item_size[i]:
           dist3[i, :] = 1e18
           track = results[i]
-          if track['score'] > self.opt.new_thresh:
+          if track['score'] > self.opt.new_thresh[track['class']-1]:
             self.id_count += 1
             track['tracking_id'] = self.id_count
             track['age'] = 1
@@ -107,7 +107,7 @@ class Tracker(object):
       # Private detection: create tracks for all un-matched detections
       for i in unmatched_dets:
         track = results[i]
-        if track['score'] > self.opt.new_thresh:
+        if track['score'] > self.opt.new_thresh[track['class']-1]:
           self.id_count += 1
           track['tracking_id'] = self.id_count
           track['age'] = 1
