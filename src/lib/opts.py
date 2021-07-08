@@ -168,7 +168,7 @@ class opts(object):
                                   ' during validation.')
     self.parser.add_argument('--map_argoverse_id', action='store_true',
                              help='if trained on nuscenes and eval on kitti')
-    self.parser.add_argument('--out_thresh', type=float, default=-1,
+    self.parser.add_argument('--out_thresh', type=str, default="-1",
                              help='')
     self.parser.add_argument('--depth_scale', type=float, default=1,
                              help='')
@@ -226,9 +226,9 @@ class opts(object):
     self.parser.add_argument('--hm_disturb', type=float, default=0)
     self.parser.add_argument('--lost_disturb', type=float, default=0)
     self.parser.add_argument('--fp_disturb', type=float, default=0)
-    self.parser.add_argument('--pre_thresh', type=float, default=-1)
-    self.parser.add_argument('--track_thresh', type=float, default=0.3)
-    self.parser.add_argument('--new_thresh', type=float, default=0.3)
+    self.parser.add_argument('--pre_thresh', type=str, default="-1")
+    self.parser.add_argument('--track_thresh', type=str, default="0.3")
+    self.parser.add_argument('--new_thresh', type=str, default="0.3")
     self.parser.add_argument('--max_frame_dist', type=int, default=3) # larger?
     self.parser.add_argument('--ltrb_amodal', action='store_true')
     self.parser.add_argument('--ltrb_amodal_weight', type=float, default=0.1)
@@ -302,18 +302,10 @@ class opts(object):
       [int(i) for i in opt.ignore_loaded_cats.split(',')] \
       if opt.ignore_loaded_cats != '' else []
 
-    #opt.num_workers = max(opt.num_workers, 2 * len(opt.gpus))
-    opt.pre_img = False
-    if 'tracking' in opt.task:
-      print('Running tracking')
-      opt.tracking = True
-      opt.out_thresh = max(opt.track_thresh, opt.out_thresh)
-      opt.pre_thresh = max(opt.track_thresh, opt.pre_thresh)
-      opt.new_thresh = max(opt.track_thresh, opt.new_thresh)
-      opt.pre_img = not opt.no_pre_img
-      print('Using tracking threshold for out threshold!', opt.track_thresh)
-      if 'ddd' in opt.task:
-        opt.show_track_color = True
+    opt.track_thresh = [float(thr) for thr in opt.track_thresh.split(',')]
+    opt.pre_thresh = [float(thr) for thr in opt.pre_thresh.split(',')]
+    opt.new_thresh = [float(thr) for thr in opt.new_thresh.split(',')]
+    opt.out_thresh = [float(thr) for thr in opt.out_thresh.split(',')]
 
     opt.fix_res = not opt.keep_res
     print('Fix size testing.' if opt.fix_res else 'Keep resolution testing.')
@@ -356,9 +348,37 @@ class opts(object):
     return opt
 
 
+
   def update_dataset_info_and_set_heads(self, opt, dataset):
+    def threshold_parsing(thr, num_classes):
+      if not len(thr) == num_classes:
+        if len(thr)  == 1:
+          thr  = thr * num_classes
+      print(thr)
+      assert len(thr) == num_classes, "threshold and class inconsistency"    
+      return thr
+
     opt.num_classes = dataset.num_categories \
                       if opt.num_classes < 0 else opt.num_classes
+
+    opt.track_thresh = threshold_parsing(opt.track_thresh, opt.num_classes)
+    opt.out_thresh = threshold_parsing(opt.out_thresh, opt.num_classes)
+    opt.pre_thresh = threshold_parsing(opt.pre_thresh, opt.num_classes)
+    opt.new_thresh = threshold_parsing(opt.new_thresh, opt.num_classes)
+
+    opt.pre_img = False
+    if 'tracking' in opt.task:
+      print('Running tracking')
+      opt.tracking = True
+      opt.out_thresh = [max(x, y) for x, y in zip(opt.track_thresh, opt.out_thresh)]
+      opt.pre_thresh = [max(x, y) for x, y in zip(opt.track_thresh, opt.pre_thresh)]
+      opt.new_thresh = [max(x, y) for x, y in zip(opt.track_thresh, opt.new_thresh)]
+
+      opt.pre_img = not opt.no_pre_img
+      print('Using tracking threshold for out threshold!', opt.track_thresh)
+      if 'ddd' in opt.task:
+        opt.show_track_color = True
+
     # input_h(w): opt.input_h overrides opt.input_res overrides dataset default
     input_h, input_w = dataset.default_resolution
     input_h = opt.input_res if opt.input_res > 0 else input_h

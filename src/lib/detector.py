@@ -273,7 +273,7 @@ class Detector(object):
 
     output_inds = []
     for track in tracks:
-      if track['score'] < self.opt.pre_thresh: #or det['active'] == 0:
+      if track['score'] < self.opt.pre_thresh[track['class']-1]: #or det['active'] == 0:
         continue
       bbox = self._trans_bbox(track['bbox'], trans_input, inp_width, inp_height)
       bbox_out = self._trans_bbox(
@@ -408,7 +408,7 @@ class Detector(object):
     assert len(self.opt.test_scales) == 1, 'multi_scale not supported!'
     results = []
     for i in range(len(detections[0])):
-      if detections[0][i]['score'] > self.opt.out_thresh:
+      if detections[0][i]['score'] > self.opt.out_thresh[detections[0][i]['class'] - 1]:
         results.append(detections[0][i])
     return results
 
