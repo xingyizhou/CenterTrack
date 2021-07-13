@@ -1,0 +1,17 @@
+version: "2.3"
+services:
+  # Service is based on https://github.com/xingyizhou/CenterTrack/pull/176
+  dev:
+    image: centertrack_dev
+    build:
+      context: .
+    tty: true
+    working_dir: /work
+    ipc: host
+    runtime: nvidia
+    volumes:
+      - .:/work
+      - /home/shared/planning-research/data:/work/data
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
