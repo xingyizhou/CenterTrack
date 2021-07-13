@@ -94,6 +94,7 @@ RUN cd DCNv2 && bash ./make.sh
 # Install other dependencies
 RUN cd /tmp && wget --quiet https://github.com/BurntSushi/ripgrep/releases/download/13.0.0/ripgrep_13.0.0_amd64.deb && dpkg -i ripgrep*.deb
 RUN apt install dumb-init
+RUN pip install gdown
 
 WORKDIR /CenterTrack
 
