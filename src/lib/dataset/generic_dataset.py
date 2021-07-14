@@ -266,7 +266,7 @@ class GenericDataset(data.Dataset):
         track_id = ann['track_id'] if 'track_id' in ann else -1
         non_dup = True if track_id not in track_ids else False
 
-        if idx == 0 and np.random.random() < self.opt.rand_erase_seg_ratio and self.opt.copy_and_paste:
+        if idx == 0 and np.random.random() < self.opt.rand_erase_seg_ratio and self.opt.copy_and_paste and self.split == 'train':
           masks_to_be_erase = self.merge_masks_as_input([ann], trans)
           pre_img = erase_seg_mask_from_image(pre_img, masks_to_be_erase)
           continue
