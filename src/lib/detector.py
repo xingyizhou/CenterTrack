@@ -295,7 +295,7 @@ class Detector(object):
           [(bbox_out[0] + bbox_out[2]) / 2, 
            (bbox_out[1] + bbox_out[3]) / 2], dtype=np.int32)
         output_inds.append(ct_out[1] * out_width + ct_out[0])
-      if track['age'] > 1 and self.opt.copy_and_paste:
+      if track['age'] > 1 and self.opt.paste_up:
         track['segmentation'] = track['seg']
         masks_to_be_paste = self.merge_masks_as_input([track], trans_input)
         pre_images = copy_paste_with_seg_mask(pre_images.squeeze(0), age_images[-track['age']], masks_to_be_paste)

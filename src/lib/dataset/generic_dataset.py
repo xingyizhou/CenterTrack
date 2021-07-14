@@ -104,7 +104,7 @@ class GenericDataset(data.Dataset):
 
     pre_cts, track_ids = None, None
     if opt.tracking:
-      num_pre_data = opt.num_pre_data if opt.copy_and_paste else 1
+      num_pre_data = opt.num_pre_data if opt.paste_up else 1
       pre_images, pre_annss, frame_dists = self._load_pre_data(
         img_info['video_id'], img_info['frame_id'], 
         img_info['sensor_id'] if 'sensor_id' in img_info else 1, num_pre_data)
@@ -266,7 +266,7 @@ class GenericDataset(data.Dataset):
         track_id = ann['track_id'] if 'track_id' in ann else -1
         non_dup = True if track_id not in track_ids else False
 
-        if idx == 0 and np.random.random() < self.opt.rand_erase_seg_ratio and self.opt.copy_and_paste and self.split == 'train':
+        if idx == 0 and np.random.random() < self.opt.rand_erase_seg_ratio and self.opt.paste_up and self.split == 'train':
           masks_to_be_erase = self.merge_masks_as_input([ann], trans)
           pre_img = erase_seg_mask_from_image(pre_img, masks_to_be_erase)
           continue
@@ -282,7 +282,7 @@ class GenericDataset(data.Dataset):
             ct = np.array(
               [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
 
-          if idx > 0 and self.opt.copy_and_paste: 
+          if idx > 0 and self.opt.paste_up: 
             ann_to_be_paste.append(ann)
           radius = gaussian_radius((math.ceil(h), math.ceil(w)))
           radius = max(0, int(radius)) 
