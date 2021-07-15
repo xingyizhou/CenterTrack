@@ -18,6 +18,7 @@ from utils.image import flip, color_aug
 from utils.image import get_affine_transform, affine_transform
 from utils.image import gaussian_radius, draw_umich_gaussian
 from utils.image import erase_seg_mask_from_image, copy_paste_with_seg_mask
+from utils.utils import make_disjoint
 import copy
 
 class GenericDataset(data.Dataset):
@@ -87,6 +88,9 @@ class GenericDataset(data.Dataset):
     if self.split == 'train':
       c, aug_s, rot = self._get_aug_param(c, s, width, height)
       s = s * aug_s
+      if np.random.random() < opt.copy_and_paste:
+        copied_ann, copied_img = self._rand_pick_ann()
+        anns, img = self._copy_and_paste(anns, img, copied_ann, copied_img, height, width)
       if np.random.random() < opt.flip:
         flipped = 1
         img = img[:, ::-1, :]
@@ -199,6 +203,11 @@ class GenericDataset(data.Dataset):
 
     return img, anns, img_info, img_path
 
+  def _rand_pick_ann(self):
+    index = np.random.choice(len(self.images), 1)[0]
+    img, anns, img_info, img_path = self._load_data(index)
+    ann = np.random.choice(anns, 1)[0]
+    return ann, img
 
   def _load_pre_data(self, video_id, frame_id, sensor_id=1, num_data=1):
     img_infos = self.video_to_images[video_id]
@@ -364,10 +373,42 @@ class GenericDataset(data.Dataset):
     
     return c, aug_s, rot
 
+  def _copy_and_paste(self, anns, image, copied_ann, copied_image, height, width):
+    if len(anns) == 0 or anns is None or copied_ann is None:
+      return anns, image
+    anchor_ann = np.random.choice(anns, 1)[0]
+    copied_mask = mask_utils.decode(copied_ann['segmentation'])
+    anchor_bbox = mask_utils.toBbox(anchor_ann['segmentation']) #  bbs     - [nx4] Bounding box(es) stored as [x y w h]
+    copied_bbox = mask_utils.toBbox(copied_ann['segmentation']) #  bbs     - [nx4] Bounding box(es) stored as [x y w h]
+    copied_center = [copied_bbox[0]+copied_bbox[2]/2, copied_bbox[1]+copied_bbox[3]/2]
+    #anchor_center = [anchor_bbox[0]+anchor_bbox[2]/2, anchor_bbox[1]+anchor_bbox[3]/2]
+    scale_ratio = anchor_bbox[3] / copied_bbox[3]
+    dx, dy = - copied_bbox[0], - copied_bbox[1]
+    jitter_x, jitter_y = np.random.random() * anchor_bbox[2] , np.random.random() * anchor_bbox[3]
+    dx = dx*scale_ratio + anchor_bbox[0] + jitter_x
+    dy = dy*scale_ratio + anchor_bbox[1] + jitter_y
+    M = np.float32([[scale_ratio, 0, dx],[0, scale_ratio, dy]])
+    cpimg = cv2.warpAffine(copied_image, M, (image.shape[1], image.shape[0]))
+    cpmask = cv2.warpAffine(copied_mask, M, (image.shape[1], image.shape[0]))
+
+    result_img = copy_paste_with_seg_mask(image, cpimg, cpmask, blend=False)
+
+    cpseg= mask_utils.encode((np.asfortranarray(cpmask > 0.5).astype(np.uint8)))
+    cpseg['counts'] = cpseg['counts'].decode("utf-8")
+    copied_ann['segmentation'] = cpseg
+    copied_ann['priority'] = 99
+
+    for a in anns:
+      a.update({'priority': 1})
+    anns.append(copied_ann)
+
+    anns = make_disjoint(anns, strategy='priority')
+
+    return anns, result_img
+
 
   def _flip_anns(self, anns, height, width):
     for k in range(len(anns)):
-
       if 'bbox' not in anns[k].keys():
         anns[k]['bbox'] = mask_utils.toBbox(anns[k]['segmentation'])
       if 'segmentation' in anns[k].keys():
@@ -724,3 +765,5 @@ class GenericDataset(data.Dataset):
 
     for i in range(len(self.coco.dataset['annotations'])):
       self.coco.dataset['annotations'][i]['track_id'] = i + 1
+
+  

@@ -186,6 +186,8 @@ class Trainer(object):
         bar.next()
       
       if opt.debug > 0:
+        if opt.debug_once and epoch > 1:
+          continue
         self.debug(batch, output, iter_id, dataset=data_loader.dataset)
       
       del output, loss, loss_stats
