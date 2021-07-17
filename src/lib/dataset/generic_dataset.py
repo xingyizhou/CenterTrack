@@ -80,7 +80,6 @@ class GenericDataset(data.Dataset):
       self.img_dir = img_dir
       if opt.copy_and_paste:
         self.PedsAnnIds = self.coco.getAnnIds(catIds=[2]) # CatId = 2 for Pedestrain
-        print(self.coco.cats)
 
   def __getitem__(self, index):
     opt = self.opt
@@ -90,17 +89,27 @@ class GenericDataset(data.Dataset):
     c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)
     s = max(img.shape[0], img.shape[1]) * 1.0 if not self.opt.not_max_crop \
       else np.array([img.shape[1], img.shape[0]], np.float32)
-    aug_s, rot, flipped = 1, 0, 0
+    aug_s, rot, flipped, copy_and_pasted = 1, 0, 0, 0
     if self.split == 'train':
       c, aug_s, rot = self._get_aug_param(c, s, width, height)
       s = s * aug_s
       if np.random.random() < opt.copy_and_paste:
+        copy_and_pasted = 1
         copied_ann, copied_img = self._rand_pick_peds_ann()
-        anns, img = self._copy_and_paste(anns, img, copied_ann, copied_img, height, width)
+        anchor_ann = np.random.choice(anns, size=int(len(anns) > 0))
+        if len(anchor_ann) > 0 and  not int(self.cat_ids[anchor_ann[0]['category_id']]) == 10:
+          anchor_ann = anchor_ann[0]
+          anns, img, copy_and_pasted = self._copy_and_paste(anchor_ann, anns, img, copied_ann, copied_img, height, width)
+        else:
+          copy_and_pasted = 0
       if np.random.random() < opt.flip:
         flipped = 1
         img = img[:, ::-1, :]
         anns = self._flip_anns(anns, height, width)
+        if copy_and_pasted:
+          copied_img = copied_img[:, ::-1, :]
+          anchor_ann = self._flip_anns([anchor_ann], height, width)[0]
+          copied_ann = self._flip_anns([copied_ann], height, width)[0]
 
     trans_input = get_affine_transform(
       c, s, rot, [opt.input_w, opt.input_h])
@@ -136,6 +145,9 @@ class GenericDataset(data.Dataset):
           c_pre, s_pre, rot, [opt.input_w, opt.input_h])
         trans_output_pre = get_affine_transform(
           c_pre, s_pre, rot, [opt.output_w, opt.output_h])
+      if copy_and_pasted:
+        p_anns, p_img, _ = self._copy_and_paste(anchor_ann, pre_annss[-1], pre_images[-1], copied_ann, copied_img, height, width)
+        pre_annss[-1], pre_images[-1] = p_anns, p_img
       pre_imgs = [self._get_input(pre_image, trans_input_pre) for pre_image in pre_images]
       pre_img, pre_hm, pre_cts, track_ids = self._get_pre_dets(
         pre_imgs, pre_annss, trans_input_pre, trans_output_pre)
@@ -379,40 +391,38 @@ class GenericDataset(data.Dataset):
     
     return c, aug_s, rot
 
-  def _copy_and_paste(self, anns, image, copied_ann, copied_image, height, width):
+  def _copy_and_paste(self, anchor_ann, anns, image, copied_ann, copied_image, height, width):
     if len(anns) <= 0 or anns is None or copied_ann is None or len(copied_ann) <= 0:
-      return anns, image
-    
-    #copied_ann = copied_ann[0] if _isArrayLike(copied_ann) else copied_ann
-    anchor_ann = np.random.choice(anns, size=int(len(anns) > 0))[0]
+      return anns, image, 0
+ 
     copied_mask = mask_utils.decode(copied_ann['segmentation'])
     anchor_bbox = mask_utils.toBbox(anchor_ann['segmentation']) #  bbs     - [nx4] Bounding box(es) stored as [x y w h]
     copied_bbox = mask_utils.toBbox(copied_ann['segmentation']) #  bbs     - [nx4] Bounding box(es) stored as [x y w h]
     copied_center = [copied_bbox[0]+copied_bbox[2]/2, copied_bbox[1]+copied_bbox[3]/2]
-    #anchor_center = [anchor_bbox[0]+anchor_bbox[2]/2, anchor_bbox[1]+anchor_bbox[3]/2]
-    scale_ratio = min(anchor_bbox[3] / copied_bbox[3], 1)
+    scale_ratio = min(anchor_bbox[3] / (copied_bbox[3] + 1e-8), 1)
     dx, dy = - copied_bbox[0], - copied_bbox[1]
     jitter_x, jitter_y = np.random.random() * anchor_bbox[2] , np.random.random() * anchor_bbox[3]
     dx = dx*scale_ratio + anchor_bbox[0] + jitter_x
     dy = dy*scale_ratio + anchor_bbox[1] + jitter_y
     M = np.float32([[scale_ratio, 0, dx],[0, scale_ratio, dy]])
-    cpimg = cv2.warpAffine(copied_image, M, (image.shape[1], image.shape[0]))
+    _copied_image = copy.deepcopy(copied_image)
+    cpimg = cv2.warpAffine(_copied_image, M, (image.shape[1], image.shape[0]))
     cpmask = cv2.warpAffine(copied_mask, M, (image.shape[1], image.shape[0]))
 
     result_img = copy_paste_with_seg_mask(image, cpimg, cpmask, blend=False)
 
     cpseg= mask_utils.encode((np.asfortranarray(cpmask > 0.5).astype(np.uint8)))
     cpseg['counts'] = cpseg['counts'].decode("utf-8")
-    copied_ann['segmentation'] = cpseg
-    copied_ann['priority'] = 99
+    _copied_ann = copy.deepcopy(copied_ann)
+    _copied_ann['segmentation'] = cpseg
+    _copied_ann['priority'] = 99
 
     for a in anns:
       a.update({'priority': 1})
-    anns.append(copied_ann)
 
+    anns.append(_copied_ann)
     anns = make_disjoint(anns, strategy='priority')
-
-    return anns, result_img
+    return anns, result_img, 1
 
 
   def _flip_anns(self, anns, height, width):
