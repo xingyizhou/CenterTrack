@@ -21,6 +21,9 @@ from utils.image import erase_seg_mask_from_image, copy_paste_with_seg_mask
 from utils.utils import make_disjoint
 import copy
 
+def _isArrayLike(obj):
+    return hasattr(obj, '__iter__') and hasattr(obj, '__len__')
+
 class GenericDataset(data.Dataset):
   is_fusion_dataset = False
   default_resolution = None
@@ -75,6 +78,9 @@ class GenericDataset(data.Dataset):
           self.video_to_images[image['video_id']].append(image)
       
       self.img_dir = img_dir
+      if opt.copy_and_paste:
+        self.PedsAnnIds = self.coco.getAnnIds(catIds=[2]) # CatId = 2 for Pedestrain
+        print(self.coco.cats)
 
   def __getitem__(self, index):
     opt = self.opt
@@ -89,7 +95,7 @@ class GenericDataset(data.Dataset):
       c, aug_s, rot = self._get_aug_param(c, s, width, height)
       s = s * aug_s
       if np.random.random() < opt.copy_and_paste:
-        copied_ann, copied_img = self._rand_pick_ann()
+        copied_ann, copied_img = self._rand_pick_peds_ann()
         anns, img = self._copy_and_paste(anns, img, copied_ann, copied_img, height, width)
       if np.random.random() < opt.flip:
         flipped = 1
@@ -203,10 +209,10 @@ class GenericDataset(data.Dataset):
 
     return img, anns, img_info, img_path
 
-  def _rand_pick_ann(self):
-    index = np.random.choice(len(self.images), 1)[0]
-    img, anns, img_info, img_path = self._load_data(index)
-    ann = np.random.choice(anns, 1)[0]
+  def _rand_pick_peds_ann(self):
+    ann_index = np.random.choice(self.PedsAnnIds, 1)[0]
+    ann = self.coco.loadAnns(ids=int(ann_index))[0]
+    img, _, _, _ = self._load_image_anns(ann['image_id'], self.coco, self.img_dir)
     return ann, img
 
   def _load_pre_data(self, video_id, frame_id, sensor_id=1, num_data=1):
@@ -374,15 +380,17 @@ class GenericDataset(data.Dataset):
     return c, aug_s, rot
 
   def _copy_and_paste(self, anns, image, copied_ann, copied_image, height, width):
-    if len(anns) == 0 or anns is None or copied_ann is None:
+    if len(anns) <= 0 or anns is None or copied_ann is None or len(copied_ann) <= 0:
       return anns, image
-    anchor_ann = np.random.choice(anns, 1)[0]
+    
+    #copied_ann = copied_ann[0] if _isArrayLike(copied_ann) else copied_ann
+    anchor_ann = np.random.choice(anns, size=int(len(anns) > 0))[0]
     copied_mask = mask_utils.decode(copied_ann['segmentation'])
     anchor_bbox = mask_utils.toBbox(anchor_ann['segmentation']) #  bbs     - [nx4] Bounding box(es) stored as [x y w h]
     copied_bbox = mask_utils.toBbox(copied_ann['segmentation']) #  bbs     - [nx4] Bounding box(es) stored as [x y w h]
     copied_center = [copied_bbox[0]+copied_bbox[2]/2, copied_bbox[1]+copied_bbox[3]/2]
     #anchor_center = [anchor_bbox[0]+anchor_bbox[2]/2, anchor_bbox[1]+anchor_bbox[3]/2]
-    scale_ratio = anchor_bbox[3] / copied_bbox[3]
+    scale_ratio = min(anchor_bbox[3] / copied_bbox[3], 1)
     dx, dy = - copied_bbox[0], - copied_bbox[1]
     jitter_x, jitter_y = np.random.random() * anchor_bbox[2] , np.random.random() * anchor_bbox[3]
     dx = dx*scale_ratio + anchor_bbox[0] + jitter_x

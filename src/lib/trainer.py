@@ -128,8 +128,6 @@ class Trainer(object):
         chunk_sizes=chunk_sizes).to(device)
     else:
       self.model_with_loss = self.model_with_loss.to(device)
-
-    
     for state in self.optimizer.state.values():
       for k, v in state.items():
         if isinstance(v, torch.Tensor):
@@ -254,7 +252,7 @@ class Trainer(object):
           if 'seg' in dets:
             debugger.add_coco_seg(
               dets['seg'][i, k] , dets['clses'][i, k],
-              dets['scores'][i, k], down_ratio=opt.down_ratio, img_id='out_pred')
+              dets['scores'][i, k], down_ratio=1/opt.down_ratio, img_id='out_pred')
           else:
             debugger.add_coco_bbox(
               dets['bboxes'][i, k] * opt.down_ratio, dets['clses'][i, k],
