@@ -108,7 +108,7 @@ class GenericDataset(data.Dataset):
         anns = self._flip_anns(anns, height, width)
         if copy_and_pasted:
           copied_img = copied_img[:, ::-1, :]
-          copied_ann = self._flip_anns([copied_ann], copied_img.shape[0], copied_img.shape[0])[0]
+          copied_ann = self._flip_anns([copied_ann], copied_img.shape[0], copied_img.shape[0])[0] #dacnp v1
           anchor_ann = self._flip_anns([anchor_ann], height, width)[0]
 
 
