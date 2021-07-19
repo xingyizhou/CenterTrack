@@ -97,7 +97,7 @@ class GenericDataset(data.Dataset):
         copy_and_pasted = 1
         copied_ann, copied_img = self._rand_pick_peds_ann()
         anchor_ann = np.random.choice(anns, size=int(len(anns) > 0))
-        if len(anchor_ann) > 0 and  not int(self.cat_ids[anchor_ann[0]['category_id']]) == 10:
+        if len(anchor_ann) > 0 and  not int(self.cat_ids[anchor_ann[0]['category_id']]) == 0:
           anchor_ann = anchor_ann[0]
           anns, img, copy_and_pasted = self._copy_and_paste(anchor_ann, anns, img, copied_ann, copied_img, height, width)
         else:
@@ -108,15 +108,14 @@ class GenericDataset(data.Dataset):
         anns = self._flip_anns(anns, height, width)
         if copy_and_pasted:
           copied_img = copied_img[:, ::-1, :]
+          copied_ann = self._flip_anns([copied_ann], copied_img.shape[0], copied_img.shape[0])[0]
           anchor_ann = self._flip_anns([anchor_ann], height, width)[0]
-          copied_ann = self._flip_anns([copied_ann], height, width)[0]
+
 
     trans_input = get_affine_transform(
       c, s, rot, [opt.input_w, opt.input_h])
     trans_output = get_affine_transform(
       c, s, rot, [opt.output_w, opt.output_h])
-    inv_trans_output = get_affine_transform(
-      c, s, rot, [opt.output_w, opt.output_h], inv=1)  
     inp = self._get_input(img, trans_input)
     ret = {'image': inp}
     gt_det = {'bboxes': [], 'scores': [], 'clses': [], 'cts': []}
@@ -398,7 +397,7 @@ class GenericDataset(data.Dataset):
     copied_mask = mask_utils.decode(copied_ann['segmentation'])
     anchor_bbox = mask_utils.toBbox(anchor_ann['segmentation']) #  bbs     - [nx4] Bounding box(es) stored as [x y w h]
     copied_bbox = mask_utils.toBbox(copied_ann['segmentation']) #  bbs     - [nx4] Bounding box(es) stored as [x y w h]
-    copied_center = [copied_bbox[0]+copied_bbox[2]/2, copied_bbox[1]+copied_bbox[3]/2]
+
     scale_ratio = min(anchor_bbox[3] / (copied_bbox[3] + 1e-8), 1)
     dx, dy = - copied_bbox[0], - copied_bbox[1]
     jitter_x, jitter_y = np.random.random() * anchor_bbox[2] , np.random.random() * anchor_bbox[3]
@@ -414,8 +413,7 @@ class GenericDataset(data.Dataset):
     cpseg= mask_utils.encode((np.asfortranarray(cpmask > 0.5).astype(np.uint8)))
     cpseg['counts'] = cpseg['counts'].decode("utf-8")
     _copied_ann = copy.deepcopy(copied_ann)
-    _copied_ann['segmentation'] = cpseg
-    _copied_ann['priority'] = 99
+    _copied_ann.update({'height':height, 'width':width, 'segmentation': cpseg, 'priority': 99})
 
     for a in anns:
       a.update({'priority': 1})
