@@ -7,11 +7,11 @@ import json
 import numpy as np
 import os
 import cv2
-TRAIN_SEQ = [0, 1, 3, 4, 5, 9, 11, 12, 15, 17, 19, 20]
-VAL_SEQ = [2, 6, 7, 8, 10, 13, 14, 16, 18]
+TRAIN_PART_SEQ = [0, 1, 3, 4, 5, 9, 11, 12, 15, 17, 19, 20]
+VAL_PART_SEQ = [2, 6, 7, 8, 10, 13, 14, 16, 18]
 DATA_PATH = '../../data/kitti_mots/'
-SPLITS = ['val', 'train', 'test']
-VIDEO_SETS = {'train': TRAIN_SEQ , 'test': range(29), 'val': VAL_SEQ}
+SPLITS = ['val_part', 'train_part', 'test', 'train']
+VIDEO_SETS = {'train_part': TRAIN_PART_SEQ , 'test': range(29), 'val_part': VAL_PART_SEQ, 'train': range(21)}
 CREATE_HALF_LABEL = False
 DEBUG = False
 
@@ -47,7 +47,7 @@ def _bbox_to_coco_bbox(bbox):
 cats = ['Pedestrian', 'Car', 'DontCare']
 
 
-cat_ids = {'Pedestrian': 1, 'Car': 2, 'DontCare':10}
+cat_ids = {'Pedestrian': 2, 'Car': 1, 'DontCare':10}
 
 cat_info = []
 for i, cat in enumerate(cats):
