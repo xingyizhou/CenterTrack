@@ -108,7 +108,7 @@ class GenericDataset(data.Dataset):
         anns = self._flip_anns(anns, height, width)
         if copy_and_pasted:
           copied_img = copied_img[:, ::-1, :]
-          copied_ann = self._flip_anns([copied_ann], copied_img.shape[0], copied_img.shape[1])[0] #dacnp v1
+          copied_ann = self._flip_anns([copied_ann], copied_img.shape[0], copied_img.shape[1])[0] 
           anchor_ann = self._flip_anns([anchor_ann], height, width)[0]
 
 
@@ -391,7 +391,7 @@ class GenericDataset(data.Dataset):
     return c, aug_s, rot
 
   def _copy_and_paste(self, anchor_ann, anns, image, copied_ann, copied_image, height, width):
-    if len(anns) <= 0 or anns is None or copied_ann is None or len(copied_ann) <= 0:
+    if len(anns) <= 0 or anns is None or copied_ann is None or len(copied_ann) <= 0 or anchor_ann['image_id'] == copied_ann['image_id']:
       return anns, image, 0
  
     copied_mask = mask_utils.decode(copied_ann['segmentation'])
@@ -399,6 +399,8 @@ class GenericDataset(data.Dataset):
     copied_bbox = mask_utils.toBbox(copied_ann['segmentation']) #  bbs     - [nx4] Bounding box(es) stored as [x y w h]
 
     scale_ratio = min(anchor_bbox[3] / (copied_bbox[3] + 1e-8), 1)
+    if copied_bbox[3] / copied_bbox[2] > 5 or copied_bbox[3] / copied_bbox[2] < 1: #dacnp v1.1
+      return anns, image, 0
     dx, dy = - copied_bbox[0], - copied_bbox[1]
     jitter_x, jitter_y = np.random.random() * anchor_bbox[2] , np.random.random() * anchor_bbox[3]
     dx = dx*scale_ratio + anchor_bbox[0] + jitter_x
@@ -414,6 +416,7 @@ class GenericDataset(data.Dataset):
     cpseg['counts'] = cpseg['counts'].decode("utf-8")
     _copied_ann = copy.deepcopy(copied_ann)
     _copied_ann.update({'height':height, 'width':width, 'segmentation': cpseg, 'priority': 99})
+    _copied_ann['bbox'] = mask_utils.toBbox(_copied_ann['segmentation'])  #dacnp v1.1
 
     for a in anns:
       a.update({'priority': 1})
