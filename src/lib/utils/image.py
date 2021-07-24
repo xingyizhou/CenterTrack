@@ -251,6 +251,8 @@ def copy_paste_with_seg_mask(image, image_to_be_paste, seg_mask, blend=True, sig
   if seg_mask is not None:
       if blend:
           alpha = gaussian(seg_mask, sigma=sigma, preserve_range=True)
+      else: 
+          alpha = seg_mask
       img_dtype = image.dtype
       alpha = torch.tensor(alpha).type(img_dtype).to(image.device) if is_torch else alpha
       alpha = alpha[None, ...] if (image.shape[0] == 3 or image.shape[0] == 1) else alpha[..., None]

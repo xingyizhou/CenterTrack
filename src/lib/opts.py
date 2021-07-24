@@ -150,6 +150,8 @@ class opts(object):
     self.parser.add_argument('--add_05', action='store_true')
     self.parser.add_argument('--dense_reg', type=int, default=1, help='')
     self.parser.add_argument('--not_load_best_val_loss', action='store_true')
+    self.parser.add_argument('--debug_once', action='store_true')
+    
 
     # test
     self.parser.add_argument('--flip_test', action='store_true',
@@ -217,6 +219,7 @@ class opts(object):
     self.parser.add_argument('--rand_erase_seg_ratio', type=float, default=0.2)
     self.parser.add_argument('--seg_center', action='store_true',
                              help='use center of mass of segmentation mask instead of bbox center')
+    self.parser.add_argument('--copy_and_paste', type=float, default=0.0)
 
     # Tracking
     self.parser.add_argument('--tracking', action='store_true')
@@ -241,10 +244,8 @@ class opts(object):
     self.parser.add_argument('--paste_up', action='store_true')
 
     # CondInst
-    self.parser.add_argument('--seg_feat_channel', default=8,type=int,
-                             help='.')
-    self.parser.add_argument('--seg_weight', default= 1., type=float,
-                             help='')
+    self.parser.add_argument('--seg_feat_channel', default=8,type=int, help='.')
+    self.parser.add_argument('--seg_weight', default= 1., type=float, help='')
     self.parser.add_argument('--not_make_mask_disjoint', action='store_true')
 
 
