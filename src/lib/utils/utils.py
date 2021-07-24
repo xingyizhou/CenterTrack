@@ -43,20 +43,23 @@ def make_disjoint(objects, strategy):
         objects_sorted = sorted(objects, key=lambda x: get_area(x), reverse=False)
     elif strategy == "class":
         objects_sorted = sorted(objects, key=lambda x: x['class'], reverse=True)
+    elif strategy == "priority":
+        objects_sorted = sorted(objects, key=lambda x: x['priority'], reverse=True) # higher is more important as score
     else:
         assert False, "Unknown mask_disjoint_strategy"
+    skey = 'seg' if 'seg' in objects_sorted[0] else 'segmentation'
     objects_disjoint = copy.deepcopy(objects_sorted)
-    used_pixels = objects_sorted[0]['seg']
+    used_pixels = objects_sorted[0][skey]
     for i, obj in enumerate(objects_sorted[1:], start=1):
-        new_mask = obj['seg']
-        if mask_utils.area(mask_utils.merge([used_pixels, obj['seg']], intersect=True)) > 0.0:
-            obj_mask_decoded = mask_utils.decode(obj['seg'])
+        new_mask = obj[skey]
+        if mask_utils.area(mask_utils.merge([used_pixels, obj[skey]], intersect=True)) > 0.0:
+            obj_mask_decoded = mask_utils.decode(obj[skey])
             used_pixels_decoded = mask_utils.decode(used_pixels)
             obj_mask_decoded[np.where(used_pixels_decoded > 0)] = 0
             new_mask = mask_utils.encode(obj_mask_decoded)
             new_mask_rle = new_mask['counts'].decode("utf-8")
-            objects_disjoint[i]['seg']['counts'] = new_mask_rle
-        used_pixels = mask_utils.merge([used_pixels, obj['seg']], intersect=False)
+            objects_disjoint[i][skey]['counts'] = new_mask_rle
+        used_pixels = mask_utils.merge([used_pixels, obj[skey]], intersect=False)
         
 
 
