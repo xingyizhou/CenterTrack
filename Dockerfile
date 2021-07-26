@@ -163,8 +163,8 @@ RUN bash -c "/usr/bin/nvidia-smi"
 RUN bash -c "python -c 'import torch; assert torch.cuda.is_available(), \"Cuda is not available.\"'"
 
 RUN apt-get update && apt-get install -y ninja-build
-RUN mkdir -p /models \
-    && cd /models \
+RUN mkdir -p /networks \
+    && cd /networks \
     && git clone --recursive https://github.com/CharlesShang/DCNv2 \
     && cd DCNv2 \
     && bash ./make.sh

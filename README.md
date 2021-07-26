@@ -41,12 +41,13 @@ docker-compose up -d
 
 ```bash
 docker-compose exec dev /bin/bash
+cd /project
 ```
 
 5. [Only needed to run once] Copy DCNv2 into the mounted directory
 
 ```bash
 # in the shell in docker
-cp -r /CenterTrack/src/lib/model/networks/DCNv2 src/lib/model/networks/
+cp -r /networks/DCNv2 src/lib/model/networks/
 ```
 
