@@ -102,5 +102,5 @@ WORKDIR /CenterTrack
 RUN sudo apt-get clean and; \
   sudo rm -rf /var/lib/apt/lists/*
 
-ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["echo","ready"]
+ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
+CMD ["tail","-f", "/dev/null"]
