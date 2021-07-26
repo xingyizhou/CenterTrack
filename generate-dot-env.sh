@@ -2,6 +2,7 @@
 
 VNC_PORT=$(id -u)0
 NOVNC_PORT=$(id -u)1
+CODE_SERVER_PORT=$(id -u)2
 PASSWORD=$(whoami)pass
 VNC_PASSWORD=$PASSWORD
 COMPOSE_PROJECT_NAME=centertrack_${USER}
@@ -19,6 +20,7 @@ echo "VNC_PORT=${VNC_PORT}" >> .env
 echo "NOVNC_PORT=${NOVNC_PORT}" >> .env
 echo "PASSWORD=${PASSWORD}" >> .env
 echo "VNC_PASSWORD=${VNC_PASSWORD}" >> .env
+echo "CODE_SERVER_PORT=${CODE_SERVER_PORT}" >> .env
 
 echo "--------------------------------------"
 cat .env

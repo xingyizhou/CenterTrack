@@ -158,22 +158,21 @@ RUN python3.6 -m pip install  --use-feature=2020-resolver \
 
 RUN python3.6 -m pip install --use-feature=2020-resolver -U 'git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI'
 
-COPY . /CenterTrack
-
 # check cuda
 RUN bash -c "/usr/bin/nvidia-smi"
 RUN bash -c "python -c 'import torch; assert torch.cuda.is_available(), \"Cuda is not available.\"'"
-WORKDIR /CenterTrack/src/lib/model/networks
-RUN if [ ! -d DCNv2 ]; then git clone --recursive https://github.com/CharlesShang/DCNv2; fi
+
 RUN apt-get update && apt-get install -y ninja-build
-RUN cd DCNv2 && bash ./make.sh
+RUN mkdir -p /models \
+    && cd /models \
+    && git clone --recursive https://github.com/CharlesShang/DCNv2 \
+    && cd DCNv2 \
+    && bash ./make.sh
 
 # Install other dependencies
 RUN cd /tmp && wget --quiet https://github.com/BurntSushi/ripgrep/releases/download/13.0.0/ripgrep_13.0.0_amd64.deb && dpkg -i ripgrep*.deb
 RUN wget -q -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_x86_64 && chmod +x /usr/local/bin/dumb-init
 RUN python3.6 -m pip install gdown
-
-WORKDIR /CenterTrack
 
 ################################################################################
 # vnc desktop: builder
@@ -209,15 +208,25 @@ FROM system
 
 RUN apt-get install -y nomacs vlc
 
+ENV CODE_SERVER_VERSION 3.11.0
+RUN cd /tmp \
+    && curl -fOL https://github.com/cdr/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server_${CODE_SERVER_VERSION}_amd64.deb \
+    && dpkg -i code-server_${CODE_SERVER_VERSION}_amd64.deb
+
+RUN curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+
+WORKDIR /root
+
+RUN npm install argon2-cli
+
 COPY --from=builder /src/web/dist/ /usr/local/lib/web/frontend/
 COPY docker-vnc/rootfs /
+COPY docker/rootfs /
 RUN ln -sf /usr/local/lib/web/frontend/static/websockify /usr/local/lib/web/frontend/static/novnc/utils/websockify && \
     chmod +x /usr/local/lib/web/frontend/static/websockify/run
 
 EXPOSE 80
-WORKDIR /root
-ENV HOME=/home/ubuntu \
-    SHELL=/bin/bash
+ENV SHELL=/bin/bash
 HEALTHCHECK --interval=30s --timeout=5s CMD curl --fail http://127.0.0.1:6079/api/health
-ENTRYPOINT ["/startup.sh"]
+ENTRYPOINT ["/init.sh"]
 

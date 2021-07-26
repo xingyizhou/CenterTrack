@@ -131,3 +131,5 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+/.code-server
