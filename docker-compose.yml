@@ -9,6 +9,9 @@ services:
     working_dir: /work
     ipc: host
     runtime: nvidia
+    ports:
+      - "${NOVNC_PORT}:80"
+      - "${VNC_PORT}:5900"
     volumes:
       - .:/work
       - /home/shared/planning-research/data:/work/data
@@ -17,7 +20,5 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
       - COMPOSE_DOCKER_CLI_BUILD=${COMPOSE_DOCKER_CLI_BUILD}
       - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-      - VNC_PORT=${VNC_PORT}
-      - NOVNC_PORT=${NOVNC_PORT}
       - PASSWORD=${PASSWORD}
       - VNC_PASSWORD=${VNC_PASSWORD}

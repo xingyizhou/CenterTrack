@@ -207,6 +207,8 @@ RUN sed -i 's#app/locale/#novnc/app/locale/#' /src/web/dist/static/novnc/app/ui.
 ################################################################################
 FROM system
 
+RUN apt-get install -y nomacs vlc
+
 COPY --from=builder /src/web/dist/ /usr/local/lib/web/frontend/
 COPY docker-vnc/rootfs /
 RUN ln -sf /usr/local/lib/web/frontend/static/websockify /usr/local/lib/web/frontend/static/novnc/utils/websockify && \
