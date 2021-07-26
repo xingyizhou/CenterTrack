@@ -214,6 +214,7 @@ RUN cd /tmp \
     && dpkg -i code-server_${CODE_SERVER_VERSION}_amd64.deb
 
 RUN curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && apt-get install -y nodejs
+RUN apt-get update && apt-get install -y neovim
 
 WORKDIR /root
 
