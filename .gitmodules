@@ -12,3 +12,6 @@
 	path = src/lib/model/networks/DCNv2
 	url = https://github.com/CharlesShang/DCNv2/
 	branch = master
+[submodule "docker-vnc"]
+	path = docker-vnc
+	url = https://github.com/fcwu/docker-ubuntu-vnc-desktop.git
