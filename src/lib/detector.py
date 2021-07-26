@@ -298,7 +298,7 @@ class Detector(object):
       if track['age'] > 1 and self.opt.paste_up:
         track['segmentation'] = track['seg']
         masks_to_be_paste = self.merge_masks_as_input([track], trans_input)
-        pre_images = copy_paste_with_seg_mask(pre_images.squeeze(0), age_images[-track['age']], masks_to_be_paste)
+        pre_images = copy_paste_with_seg_mask(pre_images.squeeze(0), age_images[-track['age']], masks_to_be_paste, blend=False)
         pre_images = pre_images.unsqueeze(0)
 
     if with_hm:

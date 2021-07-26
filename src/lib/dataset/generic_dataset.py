@@ -340,7 +340,7 @@ class GenericDataset(data.Dataset):
             draw_umich_gaussian(pre_hm[0], ct2_int, radius, k=conf)
       if len(ann_to_be_paste) > 0: 
         masks_to_be_paste = self.merge_masks_as_input(ann_to_be_paste, trans)
-        pre_img = copy_paste_with_seg_mask(pre_img, pre_imgs_rev[idx], masks_to_be_paste)
+        pre_img = copy_paste_with_seg_mask(pre_img, pre_imgs_rev[idx], masks_to_be_paste, blend=False)
     return pre_img, pre_hm, pre_cts, track_ids
 
   def merge_masks_as_input(self, anns, trans_input):
