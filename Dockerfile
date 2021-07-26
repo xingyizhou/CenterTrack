@@ -88,12 +88,12 @@ COPY . /CenterTrack
 RUN bash -c "/usr/bin/nvidia-smi"
 RUN bash -c "python -c 'import torch; assert torch.cuda.is_available(), \"Cuda is not available.\"'"
 WORKDIR /CenterTrack/src/lib/model/networks
-RUN git clone --recursive https://github.com/CharlesShang/DCNv2
+RUN if [ ! -d DCNv2 ]; then git clone --recursive https://github.com/CharlesShang/DCNv2; fi
 RUN cd DCNv2 && bash ./make.sh
 
 # Install other dependencies
 RUN cd /tmp && wget --quiet https://github.com/BurntSushi/ripgrep/releases/download/13.0.0/ripgrep_13.0.0_amd64.deb && dpkg -i ripgrep*.deb
-RUN apt install dumb-init
+RUN wget -q -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_x86_64 && chmod +x /usr/local/bin/dumb-init
 RUN pip install gdown
 
 WORKDIR /CenterTrack
