@@ -29,7 +29,7 @@ class KITTIMOTS(GenericDataset):
     if opt.dataset_version in ['train', 'test']:
       ann_file = 'tracking_{}.json'.format('train' if split == 'train' else \
         'test')
-    elif opt.dataset_version == 'train_part':
+    elif opt.dataset_version == 'train_part' and 'train' in split:
       ann_file = 'tracking_{}.json'.format('train_part')
     elif opt.dataset_version == 'val_part' or 'val' in split:
       ann_file = 'tracking_{}.json'.format('val_part')
@@ -38,7 +38,6 @@ class KITTIMOTS(GenericDataset):
     img_dir = os.path.join(
       data_dir, 'data_tracking_image_2', '{}ing'.format(image_split), 'image_02')
     #ann_file_ = split_ if opt.dataset_version == '' else opt.dataset_version
-    print('Warning! opt.dataset_version is not set')
     ann_path = os.path.join(data_dir, 'annotations', ann_file)
     self.images = None
     super(KITTIMOTS, self).__init__(opt, split, ann_path, img_dir)
