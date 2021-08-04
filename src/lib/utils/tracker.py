@@ -116,7 +116,7 @@ class Tracker(object):
 
     for i in unmatched_tracks:
       track = self.tracks[i]
-      if track['age'] < self.opt.max_age:
+      if track['age'] < self.opt.max_age[track['class']-1]:
         track['age'] += 1
         track['active'] = 0
         bbox = track['bbox']

@@ -153,7 +153,7 @@ class Detector(object):
       results = self.tracker.step(results, public_det) 
       self.pre_images = images
       self.age_images.append(images.squeeze(0))
-      if len(self.age_images) > self.opt.max_age:
+      if len(self.age_images) > max(self.opt.max_age):
         self.age_images.pop(0)
 
     tracking_time = time.time()

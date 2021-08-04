@@ -240,7 +240,7 @@ class opts(object):
     self.parser.add_argument('--no_pre_img', action='store_true')
     self.parser.add_argument('--zero_tracking', action='store_true')
     self.parser.add_argument('--hungarian', action='store_true')
-    self.parser.add_argument('--max_age', type=int, default=-1) # alive thershold when inference
+    self.parser.add_argument('--max_age', type=str, default="-1") # alive thershold when inference
     self.parser.add_argument('--num_pre_data', type=int, default=3) # when training
     self.parser.add_argument('--paste_up', action='store_true')
 
@@ -308,6 +308,7 @@ class opts(object):
     opt.pre_thresh = [float(thr) for thr in opt.pre_thresh.split(',')]
     opt.new_thresh = [float(thr) for thr in opt.new_thresh.split(',')]
     opt.out_thresh = [float(thr) for thr in opt.out_thresh.split(',')]
+    opt.max_age = [float(age) for age in opt.max_age.split(',')]
 
     opt.fix_res = not opt.keep_res
     print('Fix size testing.' if opt.fix_res else 'Keep resolution testing.')
@@ -356,7 +357,6 @@ class opts(object):
       if not len(thr) == num_classes:
         if len(thr)  == 1:
           thr  = thr * num_classes
-      print(thr)
       assert len(thr) == num_classes, "threshold and class inconsistency"    
       return thr
 
@@ -367,6 +367,7 @@ class opts(object):
     opt.out_thresh = threshold_parsing(opt.out_thresh, opt.num_classes)
     opt.pre_thresh = threshold_parsing(opt.pre_thresh, opt.num_classes)
     opt.new_thresh = threshold_parsing(opt.new_thresh, opt.num_classes)
+    opt.max_age = threshold_parsing(opt.max_age, opt.num_classes)
 
     opt.pre_img = False
     if 'tracking' in opt.task:
