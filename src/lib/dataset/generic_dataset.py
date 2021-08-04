@@ -144,7 +144,7 @@ class GenericDataset(data.Dataset):
           c_pre, s_pre, rot, [opt.input_w, opt.input_h])
         trans_output_pre = get_affine_transform(
           c_pre, s_pre, rot, [opt.output_w, opt.output_h])
-      if copy_and_pasted:
+      if copy_and_pasted and np.random.random() < opt.pre_paste:
         p_anns, p_img, _ = self._copy_and_paste(anchor_ann, pre_annss[-1], pre_images[-1], copied_ann, copied_img, height, width)
         pre_annss[-1], pre_images[-1] = p_anns, p_img
       pre_imgs = [self._get_input(pre_image, trans_input_pre) for pre_image in pre_images]
