@@ -75,14 +75,11 @@ class Tracker(object):
 
     ret = []
     for m in matches:
-      track = results[m[0]]
-      track['tracking_id'] = self.tracks[m[1]]['tracking_id']
-      track['age'] = 1
-      track['active'] = self.tracks[m[1]]['active'] + 1
-      #######################  Waiting for test  ##########################
-      #track['score'] = (track['score'] + self.tracks[m[1]]['score']) / 2.0
-      #####################################################################
-      ret.append(track)
+      result = results[m[0]]
+      result['tracking_id'] = self.tracks[m[1]]['tracking_id']
+      result['age'] = 1
+      result['active'] = self.tracks[m[1]]['active'] + 1
+      ret.append(result)
 
     if self.opt.public_det and len(unmatched_dets) > 0:
       # Public detection: only create tracks from provided detections
@@ -96,23 +93,23 @@ class Tracker(object):
         i = dist3[:, j].argmin()
         if dist3[i, j] < item_size[i]:
           dist3[i, :] = 1e18
-          track = results[i]
-          if track['score'] > self.opt.new_thresh[track['class']-1]:
+          result = results[i]
+          if result['score'] > self.opt.new_thresh[result['class']-1]:
             self.id_count += 1
-            track['tracking_id'] = self.id_count
-            track['age'] = 1
-            track['active'] = 1
-            ret.append(track)
+            result['tracking_id'] = self.id_count
+            result['age'] = 1
+            result['active'] = 1
+            ret.append(result)
     else:
       # Private detection: create tracks for all un-matched detections
       for i in unmatched_dets:
-        track = results[i]
-        if track['score'] > self.opt.new_thresh[track['class']-1]:
+        result = results[i]
+        if result['score'] > self.opt.new_thresh[result['class']-1]:
           self.id_count += 1
-          track['tracking_id'] = self.id_count
-          track['age'] = 1
-          track['active'] =  1
-          ret.append(track)
+          result['tracking_id'] = self.id_count
+          result['age'] = 1
+          result['active'] =  1
+          ret.append(result)
     
     
     tracks = copy.deepcopy(ret)
