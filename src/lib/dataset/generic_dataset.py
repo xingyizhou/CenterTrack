@@ -273,6 +273,8 @@ class GenericDataset(data.Dataset):
     annss_rev = copy.deepcopy(annss)
     annss_rev.reverse() # [n-1, n-2, ...]
     for idx, anns in enumerate(annss_rev):
+      if idx > 0 and not self.opt.paste_up: # v0.3
+        break
       ann_to_be_paste = []
       for i, ann in enumerate(anns):
         cls_id = int(self.cat_ids[ann['category_id']])
