@@ -239,14 +239,16 @@ class GenericDataset(data.Dataset):
     else:
       img_ids = [(img_info['id'], img_info['frame_id']) \
           for img_info in img_infos \
-            if (img_info['frame_id'] - frame_id) == -num_data and \
-            (not ('sensor_id' in img_info) or img_info['sensor_id'] == sensor_id)]
+            if (frame_id - img_info['frame_id']) <= num_data \
+              and (frame_id - img_info['frame_id']) > 0 ]
       img_ids.sort(key=lambda x: x[1]) # frame: (1, 2, 3 ...)
       if len(img_ids) == 0:
         img_ids = [(img_info['id'], img_info['frame_id']) \
             for img_info in img_infos \
             if (img_info['frame_id'] - frame_id) == 0 and \
             (not ('sensor_id' in img_info) or img_info['sensor_id'] == sensor_id)]
+      if len(img_ids) < num_data:
+        img_ids = img_ids * num_data
       pre_ids = np.arange(len(img_ids))
 
     imgs, annss, frame_dists = [], [], []
