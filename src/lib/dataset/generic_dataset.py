@@ -125,7 +125,7 @@ class GenericDataset(data.Dataset):
       num_pre_data = opt.num_pre_data if opt.paste_up else 1
       pre_images, pre_annss, frame_dists = self._load_pre_data(
         img_info['video_id'], img_info['frame_id'], 
-        img_info['sensor_id'] if 'sensor_id' in img_info else 1, num_pre_data)
+        img_info['sensor_id'] if 'sensor_id' in img_info else 1, max(num_pre_data, opt.num_pre_imgs_input))
       if flipped:
         pre_images = [pre_image[:, ::-1, :].copy() for pre_image in pre_images]
         pre_annss = [self._flip_anns(pre_anns, height, width) for pre_anns in pre_annss]
@@ -150,7 +150,7 @@ class GenericDataset(data.Dataset):
       pre_imgs = [self._get_input(pre_image, trans_input_pre) for pre_image in pre_images]
       pre_img, pre_hm, pre_cts, track_ids = self._get_pre_dets(
         pre_imgs, pre_annss, trans_input_pre, trans_output_pre)
-      ret['pre_img'] = pre_img
+      ret['pre_img'] = np.array(pre_imgs[-opt.num_pre_imgs_input:])
       if opt.pre_hm:
         ret['pre_hm'] = pre_hm
     
