@@ -230,17 +230,20 @@ class Trainer(object):
       debugger.add_blend_img(img, gt, 'gt_hm')
 
       if 'pre_img' in batch:
-        pre_img = batch['pre_img'][i, 0, :].detach().cpu().numpy().transpose(1, 2, 0)
+        pre = 0
+        if opt.num_pre_imgs_input > 1:
+          mt, pre = 0, 1
+          pre_img = batch['pre_img'][i, mt, :].detach().cpu().numpy().transpose(1, 2, 0)
+          pre_img = np.clip(((
+            pre_img * dataset.std + dataset.mean) * 255), 0, 255).astype(np.uint8)
+          debugger.add_img(pre_img, 'pre_img_mt')
+        pre_img = batch['pre_img'][i, pre, :].detach().cpu().numpy().transpose(1, 2, 0)
         pre_img = np.clip(((
           pre_img * dataset.std + dataset.mean) * 255), 0, 255).astype(np.uint8)
         debugger.add_img(pre_img, 'pre_img_pred')
         debugger.add_img(pre_img, 'pre_img_gt')
-        if opt.num_pre_imgs_input > 1:
-          #print('pre_img',  batch['pre_img'].size())
-          pre_img = batch['pre_img'][i, 1, :].detach().cpu().numpy().transpose(1, 2, 0)
-          pre_img = np.clip(((
-            pre_img * dataset.std + dataset.mean) * 255), 0, 255).astype(np.uint8)
-          debugger.add_img(pre_img, 'pre_img_mt')
+
+
         if 'pre_hm' in batch:
           pre_hm = debugger.gen_colormap(
             batch['pre_hm'][i].detach().cpu().numpy())

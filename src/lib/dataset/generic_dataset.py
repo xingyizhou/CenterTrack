@@ -144,9 +144,14 @@ class GenericDataset(data.Dataset):
           c_pre, s_pre, rot, [opt.input_w, opt.input_h])
         trans_output_pre = get_affine_transform(
           c_pre, s_pre, rot, [opt.output_w, opt.output_h])
-      if copy_and_pasted and np.random.random() < opt.pre_paste:
-        p_anns, p_img, _ = self._copy_and_paste(anchor_ann, pre_annss[-1], pre_images[-1], copied_ann, copied_img, height, width)
-        pre_annss[-1], pre_images[-1] = p_anns, p_img
+      if copy_and_pasted:
+        if np.random.random() < opt.pre_paste:
+          p_anns, p_img, _ = self._copy_and_paste(anchor_ann, pre_annss[-1], pre_images[-1], copied_ann, copied_img, height, width)
+          pre_annss[-1], pre_images[-1] = p_anns, p_img
+        if opt.num_pre_imgs_input >= 2 and np.random.random() < opt.pre_paste:
+          p_anns, p_img, _ = self._copy_and_paste(anchor_ann, pre_annss[-2], pre_images[-2], copied_ann, copied_img, height, width)
+          pre_annss[-2], pre_images[-2] = p_anns, p_img
+
       pre_imgs = [self._get_input(pre_image, trans_input_pre) for pre_image in pre_images]
       pre_img, pre_hm, pre_cts, track_ids = self._get_pre_dets(
         pre_imgs, pre_annss, trans_input_pre, trans_output_pre)
@@ -275,8 +280,8 @@ class GenericDataset(data.Dataset):
     annss_rev = copy.deepcopy(annss)
     annss_rev.reverse() # [n-1, n-2, ...]
     for idx, anns in enumerate(annss_rev):
-      if idx > 0 and not self.opt.paste_up: # v0.3
-        break
+      #if idx > 0 and not self.opt.paste_up: # v0.3
+      #  break
       ann_to_be_paste = []
       for i, ann in enumerate(anns):
         cls_id = int(self.cat_ids[ann['category_id']])
