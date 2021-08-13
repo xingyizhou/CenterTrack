@@ -102,8 +102,10 @@ class Detector(object):
       if self.opt.tracking:
         # initialize the first frame
         if self.pre_images is None:
-          print('Initialize tracking!')
-          self.pre_images = images
+          p_images = copy.deepcopy(images)
+          p_images = p_images.unsqueeze(1)
+          p_images = p_images.expand(-1, self.opt.num_pre_imgs_input, -1, -1, -1)
+          self.pre_images = p_images
           self.tracker.init_track(
             meta['pre_dets'] if 'pre_dets' in meta else [])
         if self.opt.pre_hm:
@@ -112,8 +114,11 @@ class Detector(object):
           # We used pre_inds for learning an offset from previous image to
           # the current image.
           pre_images, pre_hms, pre_inds = self._get_additional_inputs(
-            self.tracker.tracks, meta, self.pre_images, self.age_images, with_hm=not self.opt.zero_pre_hm)
-          self.pre_images = pre_images
+            self.tracker.tracks, meta, self.pre_images[:, -1, :], self.age_images, with_hm=not self.opt.zero_pre_hm)
+          if self.opt.num_pre_imgs_input > 1:
+            self.pre_images[:, -1, :] = pre_images
+          else:
+            self.pre_images = pre_images.unsqueeze(1).expand(-1, self.opt.num_pre_imgs_input, -1, -1, -1)
       
       pre_process_time = time.time()
       pre_time += pre_process_time - scale_start_time
@@ -151,7 +156,9 @@ class Detector(object):
       public_det = meta['cur_dets'] if self.opt.public_det else None
       # add tracking id to results
       results = self.tracker.step(results, public_det) 
-      self.pre_images = images
+      #self.pre_images = images
+      self.pre_images[:, :-1, :] = self.pre_images[:, 1:, :]
+      self.pre_images[:, -1, :] = images
       self.age_images.append(images.squeeze(0))
       if len(self.age_images) > max(self.opt.max_age):
         self.age_images.pop(0)

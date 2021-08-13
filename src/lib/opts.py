@@ -108,6 +108,7 @@ class opts(object):
     self.parser.add_argument('--efficient_level', type=int, default=0)
     self.parser.add_argument('--prior_bias', type=float, default=-4.6) # -2.19
     self.parser.add_argument('--mots_use_all_head', action='store_true')
+    self.parser.add_argument('--head_DCN', action='store_true')
 
     # input
     self.parser.add_argument('--input_res', type=int, default=-1, 
