@@ -44,16 +44,18 @@ class BaseModel(nn.Module):
         for head in self.heads:
             print('Building head:', head, 'with:', head_convs[head])
             classes = self.heads[head]
-            head_conv = head_convs[head]
+            head_conv = head_convs[head] # [256]
             if len(head_conv) > 0:
-              out = nn.Conv2d(head_conv[-1], classes, 
-                    kernel_size=1, stride=1, padding=0, bias=True)
-              if opt.head_DCN:
-                conv = DCN(last_channel, head_conv[0], kernel_size=head_kernel, stride=1, padding=head_kernel // 2, dilation=1, deformable_groups=1)
+              if opt.head_DCN and 'tracking' in head:
+                conv = DCN(last_channel, head_conv[0], kernel_size=head_kernel, stride=1, padding=head_kernel // 2, dilation=2, deformable_groups=4)
+                out = DCN(head_conv[-1], classes, 
+                    kernel_size=1, stride=1, padding=0,dilation=1, deformable_groups=1)
               else:
                 conv = nn.Conv2d(last_channel, head_conv[0],
                                 kernel_size=head_kernel, 
                                 padding=head_kernel // 2, bias=True)
+                out = nn.Conv2d(head_conv[-1], classes, 
+                    kernel_size=1, stride=1, padding=0, bias=True)
               convs = [conv]
               for k in range(1, len(head_conv)):
                     convs.append(nn.Conv2d(head_conv[k - 1], head_conv[k], 
