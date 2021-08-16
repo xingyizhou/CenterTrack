@@ -63,7 +63,10 @@ class BaseModel(nn.Module):
                     convs.append(nn.Conv2d(head_conv[k - 1], head_conv[k], 
                                 kernel_size=1, bias=True))
               if len(convs) == 1:
-                fc = nn.Sequential(conv, bn, nn.ReLU(inplace=True), out)
+                if opt.head_DCN:
+                  fc = nn.Sequential(conv, bn, nn.ReLU(inplace=True), out)
+                else:
+                  fc = nn.Sequential(conv, nn.ReLU(inplace=True), out)
               elif len(convs) == 2:
                 fc = nn.Sequential(
                   convs[0], nn.ReLU(inplace=True), 
