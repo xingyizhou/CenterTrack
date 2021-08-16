@@ -10,6 +10,7 @@ try:
 except:
     print('import DCN failed')
     DCN = None
+BN_MOMENTUM = 0.1
 
 def fill_fc_weights(layers):
     for m in layers.modules():
@@ -47,21 +48,22 @@ class BaseModel(nn.Module):
             head_conv = head_convs[head] # [256]
             if len(head_conv) > 0:
               if opt.head_DCN and 'tracking' in head:
-                conv = DCN(last_channel, head_conv[0], kernel_size=head_kernel, stride=1, padding=head_kernel // 2, dilation=2, deformable_groups=4)
-                out = DCN(head_conv[-1], classes, 
-                    kernel_size=1, stride=1, padding=0,dilation=1, deformable_groups=1)
+                print('using DCN.')
+                conv = DCN(last_channel, head_conv[0], kernel_size=head_kernel, stride=1, padding=head_kernel // 2, dilation=1, deformable_groups=4)
               else:
                 conv = nn.Conv2d(last_channel, head_conv[0],
                                 kernel_size=head_kernel, 
                                 padding=head_kernel // 2, bias=True)
-                out = nn.Conv2d(head_conv[-1], classes, 
-                    kernel_size=1, stride=1, padding=0, bias=True)
+
+              bn = nn.BatchNorm2d(head_conv[0], momentum=BN_MOMENTUM)
+              out = nn.Conv2d(head_conv[-1], classes, 
+                kernel_size=1, stride=1, padding=0, bias=True)
               convs = [conv]
               for k in range(1, len(head_conv)):
                     convs.append(nn.Conv2d(head_conv[k - 1], head_conv[k], 
                                 kernel_size=1, bias=True))
               if len(convs) == 1:
-                fc = nn.Sequential(conv, nn.ReLU(inplace=True), out)
+                fc = nn.Sequential(conv, bn, nn.ReLU(inplace=True), out)
               elif len(convs) == 2:
                 fc = nn.Sequential(
                   convs[0], nn.ReLU(inplace=True), 
