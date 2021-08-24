@@ -461,6 +461,22 @@ class Debugger(object):
       (int(ed[0] + st[0]), int(ed[1] + st[1])), c, 2,
       line_type=cv2.LINE_AA, tipLength=0.3)
 
+  def add_arrows(self, trackmap, img_id, c=(255, 0, 255), w=2 ):
+    if self.opt.only_show_dots:
+      return
+    b, dim, H, W = trackmap.size() 
+    for h in range(H):
+      for w in range(W):
+        if np.random.random() > 0.9:
+          dx, dy = trackmap[0, :, h, w] 
+          #print(dh, dw)
+          cv2.arrowedLine(
+            self.imgs[img_id], (int(w*4), int(h*4)), 
+            (int(4*w + dx*4), int(4*h + dy*4)), c, thickness=1,
+            line_type=cv2.LINE_AA, tipLength=0.3)
+
+
+
 color_list = np.array(
         [1.000, 1.000, 1.000,
             0.850, 0.325, 0.098,

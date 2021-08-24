@@ -440,6 +440,10 @@ class Detector(object):
         pre_hm = debugger.gen_colormap(
           pre_hms[0].detach().cpu().numpy())
         debugger.add_blend_img(pre_img, pre_hm, 'pre_hm')
+    if 'tracking' in output:
+      debugger.add_img(img, img_id='tracking_arrowmap')
+      debugger.add_arrows(output['tracking'], img_id='tracking_arrowmap')
+
 
 
   def show_results(self, debugger, image, results):
