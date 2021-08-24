@@ -18,19 +18,6 @@ def fill_fc_weights(layers):
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)
 
-class DeformConv(nn.Module):
-    def __init__(self, chi, cho):
-        super(DeformConv, self).__init__()
-        self.actf = nn.Sequential(
-            nn.BatchNorm2d(cho, momentum=BN_MOMENTUM),
-            nn.ReLU(inplace=True)
-        )
-        self.conv = DCN(chi, cho, kernel_size=(3,3), stride=1, padding=1, dilation=1, deformable_groups=1)
-
-    def forward(self, x):
-        x = self.conv(x)
-        x = self.actf(x)
-        return x
 
 class BaseModel(nn.Module):
     def __init__(self, heads, head_convs, num_stacks, last_channel, opt=None):
@@ -98,12 +85,12 @@ class BaseModel(nn.Module):
     def img2feats(self, x):
       raise NotImplementedError
     
-    def imgpre2feats(self, x, pre_img=None, pre_hm=None):
+    def imgpre2feats(self, x, pre_img=None, pre_hm=None, kmf_att=None):
       raise NotImplementedError
 
-    def forward(self, x, pre_img=None, pre_hm=None):
-      if (pre_hm is not None) or (pre_img is not None):
-        feats = self.imgpre2feats(x, pre_img, pre_hm)
+    def forward(self, x, pre_img=None, pre_hm=None, kmf_att=None):
+      if (pre_hm is not None) or (pre_img is not None) or (kmf_att is not None):
+        feats = self.imgpre2feats(x, pre_img, pre_hm, kmf_att)
       else:
         feats = self.img2feats(x)
       out = []

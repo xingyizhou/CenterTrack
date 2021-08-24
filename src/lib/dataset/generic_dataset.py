@@ -192,7 +192,10 @@ class GenericDataset(data.Dataset):
       self._add_instance(
         ret, gt_det, k, cls_id, bbox, bbox_amodal, ann, trans_output, aug_s, 
         calib, seg_mask, pre_cts, track_ids)
-
+      
+      if opt.kmf_att:
+        self._add_kmf_att(ret, ann, trans_input)
+    ret['kmf_att'] = ret['kmf_att'] + 1
     if self.opt.debug > 0:
       gt_det = self._format_gt_det(gt_det)
       meta = {'c': c, 's': s, 'gt_det': gt_det, 'img_id': img_info['id'],
@@ -497,7 +500,10 @@ class GenericDataset(data.Dataset):
     if 'seg' in self.opt.task:
       ret['seg_mask'] = np.zeros(
       (max_objs, self.opt.output_h, self.opt.output_w), np.float32)
-
+    if self.opt.kmf_att:
+      ret['kmf_att'] = np.zeros(
+      (1, self.opt.input_h, self.opt.input_w), 
+      np.float32)
     regression_head_dims = {
       'reg': 2, 'wh': 2, 'tracking': 2, 'ltrb': 4, 'ltrb_amodal': 4, 
       'nuscenes_att': 8, 'velocity': 3, 'hps': self.num_joints * 2, 
@@ -600,6 +606,42 @@ class GenericDataset(data.Dataset):
     bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, self.opt.output_h - 1)
     h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
     return bbox, bbox_amodal
+
+  def _add_kmf_att(self, ret, ann, trans_input):
+    trans = trans_input
+    if 'bbox' not in ann.keys():
+      ann['bbox'] = mask_utils.toBbox(ann['segmentation'])
+    bbox = self._coco_box_to_bbox(ann['bbox'])
+    bbox[:2] = affine_transform(bbox[:2], trans)
+    bbox[2:] = affine_transform(bbox[2:], trans)
+    bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, hm_w - 1)
+    bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, hm_h - 1)
+    h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
+    max_rad = 1
+
+    if (h > 0 and w > 0):
+      ct = np.array(
+        [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
+      radius = gaussian_radius((math.ceil(h), math.ceil(w)))
+          radius = max(0, int(radius)) 
+          max_rad = max(max_rad, radius)
+      
+      ct0 = ct.copy()
+      conf = 1
+
+      ct[0] = ct[0] + np.random.randn() * self.opt.hm_disturb * w
+      ct[1] = ct[1] + np.random.randn() * self.opt.hm_disturb * h
+      conf = 1 if np.random.random() > self.opt.lost_disturb else 0
+      ct_int = ct.astype(np.int32)
+      draw_umich_gaussian(ret['kmf_att'], ct_int, radius, k=conf)
+
+      if np.random.random() < self.opt.fp_disturb and reutrn_hm: # generate false positive 
+        ct2 = ct0.copy()
+        # Hard code heatmap disturb ratio, haven't tried other numbers.
+        ct2[0] = ct2[0] + np.random.randn() * 0.05 * w
+        ct2[1] = ct2[1] + np.random.randn() * 0.05 * h 
+        ct2_int = ct2.astype(np.int32)
+        draw_umich_gaussian(ret['kmf_att'], ct2_int, radius, k=conf)
 
   def _add_instance(
     self, ret, gt_det, k, cls_id, bbox, bbox_amodal, ann, trans_output,

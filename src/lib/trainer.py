@@ -107,7 +107,8 @@ class ModleWithLoss(torch.nn.Module):
   def forward(self, batch):
     pre_img = batch['pre_img'] if 'pre_img' in batch else None
     pre_hm = batch['pre_hm'] if 'pre_hm' in batch else None
-    outputs = self.model(batch['image'], pre_img, pre_hm)
+    kmf_att = batch['kmf_att'] if 'kmf_att' in batch else None
+    outputs = self.model(batch['image'], pre_img, pre_hm, kmf_att)
     loss, loss_stats = self.loss(outputs, batch)
     return outputs[-1], loss, loss_stats
 
@@ -248,6 +249,10 @@ class Trainer(object):
           pre_hm = debugger.gen_colormap(
             batch['pre_hm'][i].detach().cpu().numpy())
           debugger.add_blend_img(pre_img, pre_hm, 'pre_hm')
+      if 'kmf_att' in batch:
+        kmf_att = debugger.gen_colormap(
+          batch['kmf_att'][i].detach().cpu().numpy() - 1)
+        debugger.add_blend_img(img, kmf_att, 'kmf_att')
 
       debugger.add_img(img, img_id='out_pred')
       if 'ltrb_amodal' in opt.heads:
