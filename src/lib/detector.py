@@ -113,8 +113,9 @@ class Detector(object):
           # pre_inds is not used in the current version.
           # We used pre_inds for learning an offset from previous image to
           # the current image.
-          pre_images, pre_hms, pre_inds = self._get_additional_inputs(
-            self.tracker.tracks, meta, self.pre_images[:, -1, :], self.age_images, with_hm=not self.opt.zero_pre_hm)
+          pre_images, pre_hms, pre_inds, kmf_hms = self._get_additional_inputs(
+            self.tracker.tracks, meta, self.pre_images[:, -1, :], self.age_images, 
+            with_hm=not self.opt.zero_pre_hm, with_kmf=self.opt.kmf_att)
           if self.opt.num_pre_imgs_input > 1:
             self.pre_images[:, -1, :] = pre_images
           else:
@@ -127,7 +128,7 @@ class Detector(object):
       # output: the output feature maps, only used for visualizing
       # dets: output tensors after extracting peaks
       output, dets, forward_time = self.process(
-        images, self.pre_images, pre_hms, pre_inds, return_time=True)
+        images, self.pre_images, pre_hms, pre_inds, kmf_hms,return_time=True)
       net_time += forward_time - pre_process_time
       decode_time = time.time()
       dec_time += decode_time - forward_time
@@ -143,7 +144,7 @@ class Detector(object):
         self.debug(
           self.debugger, images, result, output, scale, 
           pre_images=self.pre_images if not self.opt.no_pre_img else None, 
-          pre_hms=pre_hms)
+          pre_hms=pre_hms, kmf_hms=kmf_hms)
 
     # merge multi-scale testing results
     results = self.merge_outputs(detections)
@@ -269,7 +270,7 @@ class Detector(object):
     return bbox
 
 
-  def _get_additional_inputs(self, tracks, meta, pre_images, age_images, with_hm=True):
+  def _get_additional_inputs(self, tracks, meta, pre_images, age_images, with_hm=True, with_kmf=True):
     '''
     Render input heatmap from previous trackings.
     '''
@@ -277,6 +278,7 @@ class Detector(object):
     inp_width, inp_height = meta['inp_width'], meta['inp_height']
     out_width, out_height = meta['out_width'], meta['out_height']
     input_hm = np.zeros((1, inp_height, inp_width), dtype=np.float32)
+    kmf_hm = np.zeros((1, inp_height, inp_width), dtype=np.float32)
 
     output_inds = []
     for track in tracks:
@@ -298,6 +300,16 @@ class Detector(object):
         ct_int = ct.astype(np.int32)
         if with_hm:
           draw_umich_gaussian(input_hm[0], ct_int, radius)
+        if with_kmf:
+          p_bbox = track['kmf'].predict()[0]
+          p_bbox = self._trans_bbox(p_bbox, trans_input, inp_width, inp_height)
+          p_h, p_w = p_bbox[3] - p_bbox[1], p_bbox[2] - p_bbox[0]
+          p_radius = gaussian_radius((math.ceil(p_h), math.ceil(p_w)))
+          p_radius = max(0, int(p_radius))
+          p_ct_int = np.array(
+            [(p_bbox[0] + p_bbox[2]) / 2, (p_bbox[1] + p_bbox[3]) / 2], dtype=np.float32).astype(np.int32)
+          draw_umich_gaussian(kmf_hm[0], p_ct_int, p_radius)
+
         ct_out = np.array(
           [(bbox_out[0] + bbox_out[2]) / 2, 
            (bbox_out[1] + bbox_out[3]) / 2], dtype=np.int32)
@@ -313,10 +325,18 @@ class Detector(object):
       if self.opt.flip_test:
         input_hm = np.concatenate((input_hm, input_hm[:, :, :, ::-1]), axis=0)
       input_hm = torch.from_numpy(input_hm).to(self.opt.device)
+    if with_kmf:
+      kmf_hm = kmf_hm * 0.5 + 0.5
+      kmf_hm = kmf_hm[np.newaxis]
+      if self.opt.flip_test:
+        kmf_hm = np.concatenate((kmf_hm, kmf_hm[:, :, :, ::-1]), axis=0)
+      kmf_hm = torch.from_numpy(kmf_hm).to(self.opt.device)
+    else:
+      kmf_hm = None
     
     output_inds = np.array(output_inds, np.int64).reshape(1, -1)
     output_inds = torch.from_numpy(output_inds).to(self.opt.device)
-    return pre_images, input_hm, output_inds
+    return pre_images, input_hm, output_inds, kmf_hm
 
   def merge_masks_as_input(self, anns, trans_input):
       rles = [ann['segmentation'] for ann in anns]
@@ -377,10 +397,10 @@ class Detector(object):
 
 
   def process(self, images, pre_images=None, pre_hms=None,
-    pre_inds=None, return_time=False):
+    pre_inds=None, kmf_hms=None, return_time=False):
     with torch.no_grad():
       torch.cuda.synchronize()
-      output = self.model(images, pre_images, pre_hms)[-1]
+      output = self.model(images, pre_images, pre_hms, kmf_hms)[-1]
       output = self._sigmoid_output(output)
       output.update({'pre_inds': pre_inds})
       if self.opt.flip_test:
@@ -420,7 +440,7 @@ class Detector(object):
     return results
 
   def debug(self, debugger, images, dets, output, scale=1, 
-    pre_images=None, pre_hms=None):
+    pre_images=None, pre_hms=None, kmf_hms=None):
     img = images[0].detach().cpu().numpy().transpose(1, 2, 0)
     img = np.clip(((
       img * self.std + self.mean) * 255.), 0, 255).astype(np.uint8)
@@ -432,7 +452,7 @@ class Detector(object):
       debugger.add_blend_img(img, pred, 'pred_hmhp')
 
     if pre_images is not None:
-      pre_img = pre_images[0].detach().cpu().numpy().transpose(1, 2, 0)
+      pre_img = pre_images[0, 0].detach().cpu().numpy().transpose(1, 2, 0)
       pre_img = np.clip(((
         pre_img * self.std + self.mean) * 255.), 0, 255).astype(np.uint8)
       debugger.add_img(pre_img, 'pre_img')
@@ -440,7 +460,12 @@ class Detector(object):
         pre_hm = debugger.gen_colormap(
           pre_hms[0].detach().cpu().numpy())
         debugger.add_blend_img(pre_img, pre_hm, 'pre_hm')
-    if 'tracking' in output:
+      if kmf_hms is not None:
+        kmf_hm = debugger.gen_colormap(
+          kmf_hms[0].detach().cpu().numpy())
+        debugger.add_blend_img(img, kmf_hm, 'kmf_hm')
+
+    if 'tracking' in output and not self.opt.not_show_arrowmap:
       debugger.add_img(img, img_id='tracking_arrowmap')
       debugger.add_arrows(output['tracking'], img_id='tracking_arrowmap')
 

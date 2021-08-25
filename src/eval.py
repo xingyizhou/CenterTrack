@@ -161,6 +161,8 @@ def _to_list(results):
       for k in results[img_id][t]:
         if isinstance(results[img_id][t][k], (np.ndarray, np.float32)):
           results[img_id][t][k] = results[img_id][t][k].tolist()
+        if 'kmf' in k:
+          results[img_id][t][k] = results[img_id][t][k].get_state().tolist()
   return results
 
 if __name__ == '__main__':

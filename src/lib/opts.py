@@ -83,6 +83,7 @@ class opts(object):
     self.parser.add_argument('--tango_color', action='store_true')
     self.parser.add_argument('--only_show_dots', action='store_true')
     self.parser.add_argument('--show_trace', action='store_true')
+    self.parser.add_argument('--not_show_arrowmap', action='store_true')
 
     # model
     self.parser.add_argument('--arch', default='dla_34', 
