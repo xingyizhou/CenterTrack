@@ -630,13 +630,13 @@ class GenericDataset(data.Dataset):
       ct0 = ct.copy()
       conf = 1
 
-      ct[0] = ct[0] + np.random.randn() * self.opt.hm_disturb * w
-      ct[1] = ct[1] + np.random.randn() * self.opt.hm_disturb * h
-      conf = 1 if np.random.random() > self.opt.lost_disturb else 0
+      ct[0] = ct[0] + np.random.randn() * self.opt.att_hm_disturb * w
+      ct[1] = ct[1] + np.random.randn() * self.opt.att_hm_disturb * h
+      conf = 1 if np.random.random() > self.opt.att_lost_disturb else 0
       ct_int = ct.astype(np.int32)
       draw_umich_gaussian(ret['kmf_att'][0], ct_int, radius, k=conf)
 
-      if np.random.random() < self.opt.fp_disturb: # generate false positive 
+      if np.random.random() < self.opt.att_fp_disturb: # generate false positive 
         ct2 = ct0.copy()
         # Hard code heatmap disturb ratio, haven't tried other numbers.
         ct2[0] = ct2[0] + np.random.randn() * 0.05 * w

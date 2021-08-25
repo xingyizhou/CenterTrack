@@ -465,7 +465,7 @@ class Detector(object):
           kmf_hms[0].detach().cpu().numpy())
         debugger.add_blend_img(img, kmf_hm, 'kmf_hm')
 
-    if 'tracking' in output and not self.opt.not_show_arrowmap:
+    if 'tracking' in output and self.opt.show_arrowmap:
       debugger.add_img(img, img_id='tracking_arrowmap')
       debugger.add_arrows(output['tracking'], img_id='tracking_arrowmap')
 

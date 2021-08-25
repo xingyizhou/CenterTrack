@@ -83,7 +83,7 @@ class opts(object):
     self.parser.add_argument('--tango_color', action='store_true')
     self.parser.add_argument('--only_show_dots', action='store_true')
     self.parser.add_argument('--show_trace', action='store_true')
-    self.parser.add_argument('--not_show_arrowmap', action='store_true')
+    self.parser.add_argument('--show_arrowmap', action='store_true')
 
     # model
     self.parser.add_argument('--arch', default='dla_34', 
@@ -247,6 +247,9 @@ class opts(object):
     self.parser.add_argument('--num_pre_data', type=int, default=3) # when training
     self.parser.add_argument('--paste_up', action='store_true')
     self.parser.add_argument('--num_pre_imgs_input', type=int, default=1) 
+    self.parser.add_argument('--att_hm_disturb', type=float, default=0)
+    self.parser.add_argument('--att_lost_disturb', type=float, default=0)
+    self.parser.add_argument('--att_fp_disturb', type=float, default=0)
     # CondInst
     self.parser.add_argument('--seg_feat_channel', default=8,type=int, help='.')
     self.parser.add_argument('--seg_weight', default= 1., type=float, help='')
