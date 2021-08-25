@@ -302,6 +302,9 @@ class DLA(nn.Module):
         y = []
         x = self.base_layer(x)
 
+        if kmf_att is not None:
+            x = x * kmf_att
+        
         if pre_img is not None: # (b, n, c, h, w)
             for i in range(pre_img.size()[1]):
                 layer = getattr(self, f"pre_img_layer_{i}")
@@ -309,8 +312,7 @@ class DLA(nn.Module):
                 x = x + layer(p_img)
         if pre_hm is not None:
             x = x + self.pre_hm_layer(pre_hm)
-        if kmf_att is not None:
-            x = x * kmf_att
+
 
         for i in range(6):
             x = getattr(self, 'level{}'.format(i))(x)
