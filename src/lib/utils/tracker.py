@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.utils.linear_assignment_ import linear_assignment
 from numba import jit
 import copy
+from .kalman_filter import KalmanBoxTracker
 
 class Tracker(object):
   def __init__(self, opt):
@@ -19,6 +20,7 @@ class Tracker(object):
         if not ('ct' in item):
           bbox = item['bbox']
           item['ct'] = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
+        item['kmf'] = KalmanBoxTracker(item['bbox'])
         self.tracks.append(item)
 
   def reset(self):
@@ -79,6 +81,8 @@ class Tracker(object):
       result['tracking_id'] = self.tracks[m[1]]['tracking_id']
       result['age'] = 1
       result['active'] = self.tracks[m[1]]['active'] + 1
+      result['kmf'] = self.tracks[m[1]]['kmf']
+      result['kmf'].update(result['bbox'])
       ret.append(result)
 
     if self.opt.public_det and len(unmatched_dets) > 0:
@@ -99,6 +103,7 @@ class Tracker(object):
             result['tracking_id'] = self.id_count
             result['age'] = 1
             result['active'] = 1
+            result['kmf'] = KalmanBoxTracker(result['bbox'])
             ret.append(result)
     else:
       # Private detection: create tracks for all un-matched detections
@@ -109,12 +114,13 @@ class Tracker(object):
           result['tracking_id'] = self.id_count
           result['age'] = 1
           result['active'] =  1
+          result['kmf'] = KalmanBoxTracker(result['bbox'])
           ret.append(result)
     
     
     tracks = copy.deepcopy(ret)
 
-    for i in unmatched_tracks:
+    for i in unmatched_tracks: # for "tracker" unmatched
       track = self.tracks[i]
       if track['age'] < self.opt.max_age[track['class']-1]:
         track['age'] += 1
