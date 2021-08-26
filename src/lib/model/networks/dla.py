@@ -267,6 +267,16 @@ class DLA(nn.Module):
                     padding=3, bias=False),
             nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
             nn.ReLU(inplace=True))
+        if opt.kmf_layer:
+            self.kmf_hm_layer = nn.Sequential(
+            nn.Conv2d(1, channels[0], kernel_size=7, stride=1,
+                    padding=3, bias=False),
+            nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
+            nn.ReLU(inplace=True))
+        else:
+            self.kmf_hm_layer = None
+        
+
 
 
     def _make_level(self, block, inplanes, planes, blocks, stride=1):
@@ -303,6 +313,8 @@ class DLA(nn.Module):
         x = self.base_layer(x)
 
         if kmf_att is not None:
+            if self.kmf_hm_layer:
+                kmf_att = self.kmf_hm_layer(kmf_att)
             x = x * kmf_att
         
         if pre_img is not None: # (b, n, c, h, w)
