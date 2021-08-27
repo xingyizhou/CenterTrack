@@ -112,6 +112,8 @@ class opts(object):
     self.parser.add_argument('--head_DCN', action='store_true')
     self.parser.add_argument('--kmf_att', action='store_true')
     self.parser.add_argument('--kmf_layer', action='store_true')
+    self.parser.add_argument('--kmf_append', action='store_true')
+
 
     # input
     self.parser.add_argument('--input_res', type=int, default=-1, 

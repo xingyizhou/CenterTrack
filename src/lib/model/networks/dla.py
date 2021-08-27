@@ -233,6 +233,7 @@ class DLA(nn.Module):
                  block=BasicBlock, residual_root=False, linear_root=False,
                  opt=None):
         super(DLA, self).__init__()
+        self.opt = opt
         self.channels = channels
         self.num_classes = num_classes
         self.base_layer = nn.Sequential(
@@ -315,7 +316,10 @@ class DLA(nn.Module):
         if kmf_att is not None:
             if self.kmf_hm_layer:
                 kmf_att = self.kmf_hm_layer(kmf_att)
-            x = x * kmf_att
+            if self.opt.kmf_append:
+                x = x + x * kmf_att
+            else:
+                x = x * kmf_att
         
         if pre_img is not None: # (b, n, c, h, w)
             for i in range(pre_img.size()[1]):
