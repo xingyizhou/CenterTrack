@@ -179,6 +179,7 @@ def draw_umich_gaussian(heatmap, center, radius, k=1):
   # @numba.jit(nopython=True, nogil=True)
 def draw_umich_gaussian_oval(heatmap, center, radius_h, radius_w, k=1):
   # import pdb; pdb.set_trace()
+  radius_h, radius_w = int(radius_h), int(radius_w)
   diameter_h, diameter_w = 2 * radius_h + 1, 2 * radius_w + 1
   gaussian = gaussian2D_oval(y_size=diameter_h, x_size=diameter_w, sigma_y=diameter_h / 6, sigma_x=diameter_w / 6)
   
@@ -188,6 +189,7 @@ def draw_umich_gaussian_oval(heatmap, center, radius_h, radius_w, k=1):
     
   left, right = min(x, radius_w), min(width - x, radius_w + 1)
   top, bottom = min(y, radius_h), min(height - y, radius_h + 1)
+
   # import pdb; pdb.set_trace()
   masked_heatmap  = heatmap[y - top:y + bottom, x - left:x + right]
   masked_gaussian = gaussian[radius_h - top:radius_h + bottom, radius_w - left:radius_w + right]
