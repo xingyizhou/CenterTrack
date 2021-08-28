@@ -308,10 +308,11 @@ class Detector(object):
           p_radius = max(0, int(p_radius))
           p_ct_int = np.array(
             [(p_bbox[0] + p_bbox[2]) / 2, (p_bbox[1] + p_bbox[3]) / 2], dtype=np.float32).astype(np.int32)
-          if self.opt.guss_oval:
-            draw_umich_gaussian_oval(kmf_hm[0], p_ct_int, radius_h=h//2, radius_w=w//2, k=conf)
-          else:
-            draw_umich_gaussian(kmf_hm[0], p_ct_int, p_radius)
+          if (p_h > 0) and (p_w > 0) and (p_ct_int[0] > 0) and (p_ct_int[1]> 0) and (p_ct_int[0] < inp_width) and (p_ct_int[1] < inp_height):
+            if self.opt.guss_oval:
+              draw_umich_gaussian_oval(kmf_hm[0], p_ct_int, radius_h=h//2, radius_w=w//2, k=conf)
+            else:
+              draw_umich_gaussian(kmf_hm[0], p_ct_int, p_radius)
 
         ct_out = np.array(
           [(bbox_out[0] + bbox_out[2]) / 2, 
