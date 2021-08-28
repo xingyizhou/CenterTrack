@@ -127,6 +127,26 @@ def gaussian_radius(det_size, min_overlap=0.7):
   r3  = (b3 + sq3) / 2
   return min(r1, r2, r3)
 
+def gaussian2D_oval(x_size, y_size, sigma_x, sigma_y, x_center=None, y_center=None, theta=0):
+  
+    x_center = (x_size - 1)/2 if x_center is None else x_center
+    y_center = (y_size - 1)/2 if y_center is None else y_center
+    
+    theta = 2 * np.pi * theta/360
+    x, y = np.arange(0,x_size, 1, float), np.arange(0,y_size, 1, float)
+    y = y[:,np.newaxis]
+    sx, sy, x0, y0 = sigma_x, sigma_y, x_center, y_center
+
+    # rotation
+    a=np.cos(theta)*x -np.sin(theta)*y
+    b=np.sin(theta)*x +np.cos(theta)*y
+    a0=np.cos(theta)*x0 -np.sin(theta)*y0
+    b0=np.sin(theta)*x0 +np.cos(theta)*y0
+
+    h = np.exp(-(((a-a0)**2)/(2*(sx**2)) + ((b-b0)**2) /(2*(sy**2))))
+    h[h < np.finfo(h.dtype).eps * h.max()] = 0
+    
+    return h
 
 # @numba.jit(nopython=True, nogil=True)
 def gaussian2D(shape, sigma=1):
@@ -152,6 +172,25 @@ def draw_umich_gaussian(heatmap, center, radius, k=1):
   # import pdb; pdb.set_trace()
   masked_heatmap  = heatmap[y - top:y + bottom, x - left:x + right]
   masked_gaussian = gaussian[radius - top:radius + bottom, radius - left:radius + right]
+  if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0: # TODO debug
+    np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
+  return heatmap
+
+  # @numba.jit(nopython=True, nogil=True)
+def draw_umich_gaussian_oval(heatmap, center, radius_h, radius_w, k=1):
+  # import pdb; pdb.set_trace()
+  diameter_h, diameter_w = 2 * radius_h + 1, 2 * radius_w + 1
+  gaussian = gaussian2D_oval(y_size=diameter_h, x_size=diameter_w, sigma_y=diameter_h / 6, sigma_x=diameter_w / 6)
+  
+  x, y = int(center[0]), int(center[1])
+
+  height, width = heatmap.shape[0:2]
+    
+  left, right = min(x, radius_w), min(width - x, radius_w + 1)
+  top, bottom = min(y, radius_h), min(height - y, radius_h + 1)
+  # import pdb; pdb.set_trace()
+  masked_heatmap  = heatmap[y - top:y + bottom, x - left:x + right]
+  masked_gaussian = gaussian[radius_h - top:radius_h + bottom, radius_w - left:radius_w + right]
   if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0: # TODO debug
     np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
   return heatmap

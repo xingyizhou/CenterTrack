@@ -16,7 +16,7 @@ import torch.utils.data as data
 
 from utils.image import flip, color_aug
 from utils.image import get_affine_transform, affine_transform
-from utils.image import gaussian_radius, draw_umich_gaussian
+from utils.image import gaussian_radius, draw_umich_gaussian, draw_umich_gaussian_oval
 from utils.image import erase_seg_mask_from_image, copy_paste_with_seg_mask
 from utils.utils import make_disjoint
 import copy
@@ -634,7 +634,10 @@ class GenericDataset(data.Dataset):
       ct[1] = ct[1] + np.random.randn() * self.opt.att_hm_disturb * h
       conf = 1 if np.random.random() > self.opt.att_lost_disturb else 0
       ct_int = ct.astype(np.int32)
-      draw_umich_gaussian(ret['kmf_att'][0], ct_int, radius, k=conf)
+      if self.opt.guss_oval:
+        draw_umich_gaussian_oval(ret['kmf_att'][0], ct_int, radius_h=h//2, radius_w=w//2, k=conf)
+      else:
+        draw_umich_gaussian(ret['kmf_att'][0], ct_int, radius, k=conf)
 
       if np.random.random() < self.opt.att_fp_disturb: # generate false positive 
         ct2 = ct0.copy()
@@ -642,7 +645,10 @@ class GenericDataset(data.Dataset):
         ct2[0] = ct2[0] + np.random.randn() * 0.05 * w
         ct2[1] = ct2[1] + np.random.randn() * 0.05 * h 
         ct2_int = ct2.astype(np.int32)
-        draw_umich_gaussian(ret['kmf_att'][0], ct2_int, radius, k=conf)
+        if self.opt.guss_oval:
+          draw_umich_gaussian_oval(ret['kmf_att'][0], ct2_int, radius_h=h//2, radius_w=w//2, k=conf)
+        else:
+          draw_umich_gaussian(ret['kmf_att'][0], ct2_int, radius, k=conf)
 
   def _add_instance(
     self, ret, gt_det, k, cls_id, bbox, bbox_amodal, ann, trans_output,
