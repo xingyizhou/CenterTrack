@@ -14,7 +14,7 @@ from model.model import create_model, load_model
 from model.decode import generic_decode
 from model.utils import flip_tensor, flip_lr_off, flip_lr
 from utils.image import get_affine_transform, affine_transform
-from utils.image import draw_umich_gaussian, gaussian_radius
+from utils.image import draw_umich_gaussian, gaussian_radius, draw_umich_gaussian_oval
 from utils.post_process import generic_post_process
 from utils.debugger import Debugger
 from utils.tracker import Tracker
@@ -310,7 +310,7 @@ class Detector(object):
             [(p_bbox[0] + p_bbox[2]) / 2, (p_bbox[1] + p_bbox[3]) / 2], dtype=np.float32).astype(np.int32)
           if (p_h > 0) and (p_w > 0) and (p_ct_int[0] > 0) and (p_ct_int[1]> 0) and (p_ct_int[0] < inp_width) and (p_ct_int[1] < inp_height):
             if self.opt.guss_oval:
-              draw_umich_gaussian_oval(kmf_hm[0], p_ct_int, radius_h=h//2, radius_w=w//2, k=conf)
+              draw_umich_gaussian_oval(kmf_hm[0], p_ct_int, radius_h=h//2, radius_w=w//2)
             else:
               draw_umich_gaussian(kmf_hm[0], p_ct_int, p_radius)
 
