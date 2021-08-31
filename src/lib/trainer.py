@@ -251,7 +251,7 @@ class Trainer(object):
           debugger.add_blend_img(pre_img, pre_hm, 'pre_hm')
       if 'kmf_att' in batch:
         kmf_att = debugger.gen_colormap(
-          batch['kmf_att'][i].detach().cpu().numpy())
+          (batch['kmf_att'][i].detach().cpu().numpy() - 0.5) * 2)
         debugger.add_blend_img(img, kmf_att, 'kmf_att')
 
       debugger.add_img(img, img_id='out_pred')

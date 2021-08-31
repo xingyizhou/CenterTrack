@@ -19,7 +19,9 @@ from utils.image import get_affine_transform, affine_transform
 from utils.image import gaussian_radius, draw_umich_gaussian, draw_umich_gaussian_oval
 from utils.image import erase_seg_mask_from_image, copy_paste_with_seg_mask
 from utils.utils import make_disjoint
+from utils.kalman_filter import KalmanBoxTracker
 import copy
+import random
 
 def _isArrayLike(obj):
     return hasattr(obj, '__iter__') and hasattr(obj, '__len__')
@@ -162,6 +164,9 @@ class GenericDataset(data.Dataset):
     ### init samples
     self._init_ret(ret, gt_det)
     calib = self._get_calib(img_info, width, height)
+
+    if opt.tracking and opt.kmf_att and opt.kmf_pit:
+      self._gen_kmf_att_hm(ret, pre_annss, trans_input)
     
     num_objs = min(len(anns), self.max_objs)
     for k in range(num_objs):
@@ -193,8 +198,8 @@ class GenericDataset(data.Dataset):
         ret, gt_det, k, cls_id, bbox, bbox_amodal, ann, trans_output, aug_s, 
         calib, seg_mask, pre_cts, track_ids)
       
-      if opt.kmf_att:
-        self._add_kmf_att(ret, ann, trans_input)
+      if opt.kmf_att and not opt.kmf_pit:
+        self._add_kmf_att(ret=ret, ann=ann, trans_input=trans_input)
 
     ret['kmf_att'][0] = ret['kmf_att'][0] * 0.5 + 0.5
     if self.opt.debug > 0:
@@ -240,11 +245,29 @@ class GenericDataset(data.Dataset):
     # If training, random sample nearby frames as the "previous" frame
     # If testing, get the exact prevous frame
     if 'train' in self.split:
-      img_ids = [(img_info['id'], img_info['frame_id']) \
-          for img_info in img_infos \
-          if abs(img_info['frame_id'] - frame_id) < self.opt.max_frame_dist and \
-          (not ('sensor_id' in img_info) or img_info['sensor_id'] == sensor_id)]
-      pre_ids = np.random.choice(len(img_ids), num_data, replace=False)
+      if self.opt.kmf_att and self.opt.kmf_pit: # load pre data from one-way only
+        rev = random.randrange(2)
+        img_ids = [(img_info['id'], img_info['frame_id']) \
+            for img_info in img_infos \
+            if (frame_id - img_info['frame_id']) * pow(-1, rev)< self.opt.max_frame_dist and \
+            (frame_id - img_info['frame_id']) * pow(-1, rev) > 0 and \
+            (not ('sensor_id' in img_info) or img_info['sensor_id'] == sensor_id)]
+        img_ids.sort(key=lambda x: x[1])
+        if len(img_ids) == 0:
+          img_ids = [(img_info['id'], img_info['frame_id']) \
+              for img_info in img_infos \
+              if (img_info['frame_id'] - frame_id) == 0 and \
+              (not ('sensor_id' in img_info) or img_info['sensor_id'] == sensor_id)]
+        if len(img_ids) < num_data:
+          img_ids = img_ids * num_data
+        pre_ids = np.random.choice(len(img_ids), num_data, replace=False)
+        pre_ids = sorted(pre_ids, reverse=(rev%2==1))
+      else:
+        img_ids = [(img_info['id'], img_info['frame_id']) \
+            for img_info in img_infos \
+            if abs(img_info['frame_id'] - frame_id) < self.opt.max_frame_dist and \
+            (not ('sensor_id' in img_info) or img_info['sensor_id'] == sensor_id)]
+        pre_ids = np.random.choice(len(img_ids), num_data, replace=False)
     else:
       img_ids = [(img_info['id'], img_info['frame_id']) \
           for img_info in img_infos \
@@ -608,16 +631,46 @@ class GenericDataset(data.Dataset):
     h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
     return bbox, bbox_amodal
 
-  def _add_kmf_att(self, ret, ann, trans_input):
+
+  def _gen_kmf_att_hm(self, ret, pre_anns, trans_input):
+    trackers = {}
     trans = trans_input
     hm_h, hm_w = self.opt.input_h, self.opt.input_w
-    if 'bbox' not in ann.keys():
-      ann['bbox'] = mask_utils.toBbox(ann['segmentation'])
-    bbox = self._coco_box_to_bbox(ann['bbox'])
-    bbox[:2] = affine_transform(bbox[:2], trans)
-    bbox[2:] = affine_transform(bbox[2:], trans)
-    bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, hm_w - 1)
-    bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, hm_h - 1)
+    for idx, anns in enumerate(pre_anns): #[..., n-2, n-1] 
+      for i, ann in enumerate(anns):
+        cls_id = int(self.cat_ids[ann['category_id']])
+        if cls_id > self.opt.num_classes or cls_id <= -999 or cls_id == 0:
+          continue
+        if 'bbox' not in anns[i].keys():
+          ann['bbox'] = mask_utils.toBbox(ann['segmentation'])
+        bbox = self._coco_box_to_bbox(ann['bbox'])
+        bbox[:2] = affine_transform(bbox[:2], trans)
+        bbox[2:] = affine_transform(bbox[2:], trans)
+        bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, hm_w - 1)
+        bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, hm_h - 1)
+        h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
+        if h <= 0 or w <= 0:
+          continue
+        if ann['track_id'] not in trackers:
+          trackers[ann['track_id']] = {}
+          trackers[ann['track_id']]['kmf'] = KalmanBoxTracker(bbox)
+        else:
+          trackers[ann['track_id']]['kmf'].update(bbox)
+    for k in trackers:
+      bbox = trackers[k]['kmf'].predict()[0]
+      self._add_kmf_att(ret=ret, bbox=bbox, trans_input=trans_input)
+
+  def _add_kmf_att(self, ret, trans_input, ann=None, bbox=None):
+    trans = trans_input
+    hm_h, hm_w = self.opt.input_h, self.opt.input_w
+    if bbox is None and ann is not None:
+      if 'bbox' not in ann.keys():
+        ann['bbox'] = mask_utils.toBbox(ann['segmentation'])
+      bbox = self._coco_box_to_bbox(ann['bbox'])
+      bbox[:2] = affine_transform(bbox[:2], trans)
+      bbox[2:] = affine_transform(bbox[2:], trans)
+      bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, hm_w - 1)
+      bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, hm_h - 1)
     h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
     max_rad = 1
 

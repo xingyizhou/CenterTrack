@@ -181,7 +181,7 @@ def draw_umich_gaussian_oval(heatmap, center, radius_h, radius_w, k=1):
   # import pdb; pdb.set_trace()
   radius_h, radius_w = int(radius_h), int(radius_w)
   diameter_h, diameter_w = 2 * radius_h + 1, 2 * radius_w + 1
-  gaussian = gaussian2D_oval(y_size=diameter_h, x_size=diameter_w, sigma_y=diameter_h / 6, sigma_x=diameter_w / 6)
+  gaussian = gaussian2D_oval(y_size=diameter_h, x_size=diameter_w, sigma_y=diameter_h / 4, sigma_x=diameter_w / 4)
   
   x, y = int(center[0]), int(center[1])
 
