@@ -228,6 +228,7 @@ class opts(object):
                              help='use center of mass of segmentation mask instead of bbox center')
     self.parser.add_argument('--copy_and_paste', type=float, default=0.0)
     self.parser.add_argument('--pre_paste', type=float, default=1.0)
+    self.parser.add_argument('--one_way_pre_data', action='store_true')
 
     # Tracking
     self.parser.add_argument('--tracking', action='store_true')

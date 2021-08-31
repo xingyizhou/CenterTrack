@@ -200,8 +200,8 @@ class GenericDataset(data.Dataset):
       
       if opt.kmf_att and not opt.kmf_pit:
         self._add_kmf_att(ret=ret, ann=ann, trans_input=trans_input)
-
-    ret['kmf_att'][0] = ret['kmf_att'][0] * 0.5 + 0.5
+    if 'kmf_att' in ret:
+      ret['kmf_att'][0] = ret['kmf_att'][0] * 0.5 + 0.5
     if self.opt.debug > 0:
       gt_det = self._format_gt_det(gt_det)
       meta = {'c': c, 's': s, 'gt_det': gt_det, 'img_id': img_info['id'],
@@ -245,7 +245,7 @@ class GenericDataset(data.Dataset):
     # If training, random sample nearby frames as the "previous" frame
     # If testing, get the exact prevous frame
     if 'train' in self.split:
-      if self.opt.kmf_att and self.opt.kmf_pit: # load pre data from one-way only
+      if (self.opt.kmf_att and self.opt.kmf_pit) or self.opt.one_way_pre_data: # load pre data from one-way only
         rev = random.randrange(2)
         img_ids = [(img_info['id'], img_info['frame_id']) \
             for img_info in img_infos \
