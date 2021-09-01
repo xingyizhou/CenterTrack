@@ -165,12 +165,13 @@ class Detector(object):
       self.age_images.append(images.squeeze(0))
       if len(self.age_images) > max(self.opt.max_age):
         self.age_images.pop(0)
-      for idx in range(self.opt.num_pre_imgs_input):
-        if idx + 1 > len(self.age_images):
-          break
+      n_img = self.opt.num_pre_imgs_input
+      for idx in range(n_img):
+        if n_img-idx > len(self.age_images):
+          continue
         mask = torch.zeros_like(self.pre_images, device=self.pre_images.device, dtype=torch.bool)
         mask[0, idx, :] = True
-        self.pre_images = self.pre_images.masked_scatter(mask.byte(), self.age_images[-(idx+1)])
+        self.pre_images = self.pre_images.masked_scatter(mask.byte(), self.age_images[-n_img+idx])
 
     tracking_time = time.time()
     track_time += tracking_time - end_time
