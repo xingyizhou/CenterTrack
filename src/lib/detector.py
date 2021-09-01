@@ -342,7 +342,8 @@ class Detector(object):
         input_hm = np.concatenate((input_hm, input_hm[:, :, :, ::-1]), axis=0)
       input_hm = torch.from_numpy(input_hm).to(self.opt.device)
     if with_kmf:
-      kmf_hm = kmf_hm * 0.5 + 0.5
+      if not self.opt.keep_att:
+        kmf_hm = kmf_hm * 0.5 + 0.5
       kmf_hm = kmf_hm[np.newaxis]
       if self.opt.flip_test:
         kmf_hm = np.concatenate((kmf_hm, kmf_hm[:, :, :, ::-1]), axis=0)

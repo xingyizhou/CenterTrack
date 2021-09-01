@@ -200,7 +200,7 @@ class GenericDataset(data.Dataset):
       
       if opt.kmf_att and not opt.kmf_pit:
         self._add_kmf_att(ret=ret, ann=ann, trans_input=trans_input)
-    if 'kmf_att' in ret:
+    if 'kmf_att' in ret and not opt.keep_att:
       ret['kmf_att'][0] = ret['kmf_att'][0] * 0.5 + 0.5
     if self.opt.debug > 0:
       gt_det = self._format_gt_det(gt_det)
