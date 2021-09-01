@@ -114,10 +114,13 @@ class Detector(object):
           # We used pre_inds for learning an offset from previous image to
           # the current image.
           pre_images, pre_hms, pre_inds, kmf_hms = self._get_additional_inputs(
-            self.tracker.tracks, meta, self.pre_images[:, -1, :], self.age_images, 
+            self.tracker.tracks, meta, self.pre_images[:, 0, :], self.age_images, 
             with_hm=not self.opt.zero_pre_hm, with_kmf=self.opt.kmf_att)
           if self.opt.num_pre_imgs_input > 1:
-            self.pre_images[:, -1, :] = pre_images # could be failed
+            #self.pre_images[:, 0, :] = pre_images # could be failed
+            mask = torch.zeros_like(self.pre_images, device=self.pre_images.device, dtype=torch.bool)
+            mask[:, 0, :] = True
+            self.pre_images = self.pre_images.masked_scatter(mask.byte(), pre_images)
           else:
             self.pre_images = pre_images.unsqueeze(1).expand(-1, self.opt.num_pre_imgs_input, -1, -1, -1)
       
@@ -309,7 +312,7 @@ class Detector(object):
         ct_int = ct.astype(np.int32)
         if with_hm:
           draw_umich_gaussian(input_hm[0], ct_int, radius)
-        if with_kmf:
+        if with_kmf and track['age'] <= 1:
           p_bbox = track['kmf'].predict()[0]
           p_bbox = self._trans_bbox(p_bbox, trans_input, inp_width, inp_height)
           p_h, p_w = p_bbox[3] - p_bbox[1], p_bbox[2] - p_bbox[0]
@@ -470,10 +473,10 @@ class Detector(object):
         pre_img * self.std + self.mean) * 255.), 0, 255).astype(np.uint8)
       debugger.add_img(pre_img, 'pre_img')
       if pre_images.size()[1] > 1:
-        pre_img_1 = pre_images[0, 1].detach().cpu().numpy().transpose(1, 2, 0)
-        pre_img_1 = np.clip(((
-          pre_img_1 * self.std + self.mean) * 255.), 0, 255).astype(np.uint8)
-        debugger.add_img(pre_img_1, 'pre_img_1')
+        pre_img = pre_images[0, 1].detach().cpu().numpy().transpose(1, 2, 0)
+        pre_img = np.clip(((
+          pre_img * self.std + self.mean) * 255.), 0, 255).astype(np.uint8)
+        debugger.add_img(pre_img, 'pre_img_1')
       if pre_hms is not None:
         pre_hm = debugger.gen_colormap(
           pre_hms[0].detach().cpu().numpy())
