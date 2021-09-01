@@ -248,7 +248,7 @@ class opts(object):
     self.parser.add_argument('--no_pre_img', action='store_true')
     self.parser.add_argument('--zero_tracking', action='store_true')
     self.parser.add_argument('--hungarian', action='store_true')
-    self.parser.add_argument('--max_age', type=str, default="-1") # alive thershold when inference
+    self.parser.add_argument('--max_age', type=str, default="2") # alive thershold when inference
     self.parser.add_argument('--num_pre_data', type=int, default=3) # when training
     self.parser.add_argument('--paste_up', action='store_true')
     self.parser.add_argument('--num_pre_imgs_input', type=int, default=1) 

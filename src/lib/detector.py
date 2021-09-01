@@ -117,7 +117,7 @@ class Detector(object):
             self.tracker.tracks, meta, self.pre_images[:, -1, :], self.age_images, 
             with_hm=not self.opt.zero_pre_hm, with_kmf=self.opt.kmf_att)
           if self.opt.num_pre_imgs_input > 1:
-            self.pre_images[:, -1, :] = pre_images
+            self.pre_images[:, -1, :] = pre_images # could be failed
           else:
             self.pre_images = pre_images.unsqueeze(1).expand(-1, self.opt.num_pre_imgs_input, -1, -1, -1)
       
@@ -158,11 +158,19 @@ class Detector(object):
       # add tracking id to results
       results = self.tracker.step(results, public_det) 
       #self.pre_images = images
-      self.pre_images[:, :-1, :] = self.pre_images[:, 1:, :]
-      self.pre_images[:, -1, :] = images
+      # self.pre_images[:, :-1, :] = self.pre_images[:, 1:, :]
+      # mask = torch.zeros_like(self.pre_images, device=self.pre_images.device, dtype=torch.bool)
+      # mask[0, -1, :] = True
+      # self.pre_images = self.pre_images.masked_scatter(mask.byte(), images.squeeze(0))
       self.age_images.append(images.squeeze(0))
       if len(self.age_images) > max(self.opt.max_age):
         self.age_images.pop(0)
+      for idx in range(self.opt.num_pre_imgs_input):
+        if idx + 1 > len(self.age_images):
+          break
+        mask = torch.zeros_like(self.pre_images, device=self.pre_images.device, dtype=torch.bool)
+        mask[0, idx, :] = True
+        self.pre_images = self.pre_images.masked_scatter(mask.byte(), self.age_images[-(idx+1)])
 
     tracking_time = time.time()
     track_time += tracking_time - end_time
@@ -460,6 +468,11 @@ class Detector(object):
       pre_img = np.clip(((
         pre_img * self.std + self.mean) * 255.), 0, 255).astype(np.uint8)
       debugger.add_img(pre_img, 'pre_img')
+      if pre_images.size()[1] > 1:
+        pre_img_1 = pre_images[0, 1].detach().cpu().numpy().transpose(1, 2, 0)
+        pre_img_1 = np.clip(((
+          pre_img_1 * self.std + self.mean) * 255.), 0, 255).astype(np.uint8)
+        debugger.add_img(pre_img_1, 'pre_img_1')
       if pre_hms is not None:
         pre_hm = debugger.gen_colormap(
           pre_hms[0].detach().cpu().numpy())
