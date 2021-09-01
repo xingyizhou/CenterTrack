@@ -695,8 +695,8 @@ class GenericDataset(data.Dataset):
       if np.random.random() < self.opt.att_fp_disturb: # generate false positive 
         ct2 = ct0.copy()
         # Hard code heatmap disturb ratio, haven't tried other numbers.
-        ct2[0] = ct2[0] + np.random.randn() * 0.05 * w
-        ct2[1] = ct2[1] + np.random.randn() * 0.05 * h 
+        ct2[0] = ct2[0] + np.random.randn() * self.opt.att_disturb_dist * w
+        ct2[1] = ct2[1] + np.random.randn() * self.opt.att_disturb_dist * h 
         ct2_int = ct2.astype(np.int32)
         if self.opt.guss_oval:
           draw_umich_gaussian_oval(ret['kmf_att'][0], ct2_int, radius_h=h//2, radius_w=w//2, k=conf)

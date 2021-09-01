@@ -255,6 +255,10 @@ class opts(object):
     self.parser.add_argument('--att_hm_disturb', type=float, default=0)
     self.parser.add_argument('--att_lost_disturb', type=float, default=0)
     self.parser.add_argument('--att_fp_disturb', type=float, default=0)
+    self.parser.add_argument('--att_disturb_dist', type=float, default=0.05)
+
+
+    att_disturb_dis
     # CondInst
     self.parser.add_argument('--seg_feat_channel', default=8,type=int, help='.')
     self.parser.add_argument('--seg_weight', default= 1., type=float, help='')
