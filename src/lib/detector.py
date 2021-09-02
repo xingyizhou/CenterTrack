@@ -484,8 +484,11 @@ class Detector(object):
         debugger.add_blend_img(pre_img, pre_hm, 'pre_hm')
       if kmf_hms is not None:
         kmf_hm = debugger.gen_colormap(
-          kmf_hms[0].detach().cpu().numpy())
+          (kmf_hms[0].detach().cpu().numpy() - 0.5)*2)
         debugger.add_blend_img(img, kmf_hm, 'kmf_hm')
+        kmf_hm = debugger.gen_colormap(
+          (kmf_hms[0].detach().cpu().numpy() - 0.5)*2)
+        debugger.add_blend_img(pre_img, kmf_hm, 'kmf_hm_pre')
 
     if 'tracking' in output and self.opt.show_arrowmap:
       debugger.add_img(img, img_id='tracking_arrowmap')
