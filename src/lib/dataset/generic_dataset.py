@@ -655,7 +655,8 @@ class GenericDataset(data.Dataset):
           trackers[ann['track_id']] = {}
           trackers[ann['track_id']]['kmf'] = KalmanBoxTracker(bbox)
         else:
-          trackers[ann['track_id']]['kmf'].update(bbox)
+          if np.random.random() > self.opt.att_track_lost_disturb:
+            trackers[ann['track_id']]['kmf'].update(bbox)
     for k in trackers:
       bbox = trackers[k]['kmf'].predict()[0]
       self._add_kmf_att(ret=ret, bbox=bbox, trans_input=trans_input)
