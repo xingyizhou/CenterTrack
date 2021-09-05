@@ -16,7 +16,7 @@ import torch.utils.data as data
 
 from utils.image import flip, color_aug
 from utils.image import get_affine_transform, affine_transform
-from utils.image import gaussian_radius, draw_umich_gaussian, draw_umich_gaussian_oval
+from utils.image import gaussian_radius, draw_umich_gaussian, draw_umich_gaussian_oval, gaussian_radius_center
 from utils.image import erase_seg_mask_from_image, copy_paste_with_seg_mask
 from utils.utils import make_disjoint
 from utils.kalman_filter import KalmanBoxTracker
@@ -654,14 +654,16 @@ class GenericDataset(data.Dataset):
         if ann['track_id'] not in trackers:
           trackers[ann['track_id']] = {}
           trackers[ann['track_id']]['kmf'] = KalmanBoxTracker(bbox)
+          trackers[ann['track_id']]['age'] = 0
         else:
           if np.random.random() > self.opt.att_track_lost_disturb:
             trackers[ann['track_id']]['kmf'].update(bbox)
+            trackers[ann['track_id']]['age'] += 1
     for k in trackers:
       bbox = trackers[k]['kmf'].predict()[0]
-      self._add_kmf_att(ret=ret, bbox=bbox, trans_input=trans_input)
+      self._add_kmf_att(ret=ret, bbox=bbox, trans_input=trans_input, init=(trackers[k]['age'] <= 0))
 
-  def _add_kmf_att(self, ret, trans_input, ann=None, bbox=None):
+  def _add_kmf_att(self, ret, trans_input, ann=None, bbox=None, init=False, conf=1):
     trans = trans_input
     hm_h, hm_w = self.opt.input_h, self.opt.input_w
     if bbox is None and ann is not None:
@@ -673,23 +675,25 @@ class GenericDataset(data.Dataset):
       bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, hm_w - 1)
       bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, hm_h - 1)
     h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
-    max_rad = 1
 
     if (h > 0 and w > 0):
       ct = np.array([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
-      radius = gaussian_radius((math.ceil(h), math.ceil(w)))
+      if self.opt.guss_rad and init:
+        conf = self.opt.init_conf
+        radius = gaussian_radius_center((math.ceil(h), math.ceil(w)), min_overlap=0.2)
+      else:
+        radius = gaussian_radius((math.ceil(h), math.ceil(w)))
       radius = max(0, int(radius)) 
-      max_rad = max(max_rad, radius)
       
       ct0 = ct.copy()
-      conf = 1
 
       ct[0] = ct[0] + np.random.randn() * self.opt.att_hm_disturb * w
       ct[1] = ct[1] + np.random.randn() * self.opt.att_hm_disturb * h
-      conf = 1 if np.random.random() > self.opt.att_lost_disturb else 0
+      conf = conf if np.random.random() > self.opt.att_lost_disturb else 0
       ct_int = ct.astype(np.int32)
       if self.opt.guss_oval:
-        draw_umich_gaussian_oval(ret['kmf_att'][0], ct_int, radius_h=h//2, radius_w=w//2, k=conf)
+        radius = radius if (self.opt.guss_rad and init) else 0
+        draw_umich_gaussian_oval(ret['kmf_att'][0], ct_int, radius_h=h//2+radius, radius_w=w//2+radius, k=conf)
       else:
         draw_umich_gaussian(ret['kmf_att'][0], ct_int, radius, k=conf)
 

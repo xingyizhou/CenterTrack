@@ -127,6 +127,17 @@ def gaussian_radius(det_size, min_overlap=0.7):
   r3  = (b3 + sq3) / 2
   return min(r1, r2, r3)
 
+
+def gaussian_radius_center(det_size, min_overlap=0.2):
+  height, width = det_size
+
+  a3  = 4 * min_overlap
+  b3  = -2 * min_overlap * (height + width)
+  c3  = (min_overlap - 1) * width * height
+  sq3 = np.sqrt(b3 ** 2 - 4 * a3 * c3)
+  r3  = (b3 + sq3) / 2
+  return r3
+
 def gaussian2D_oval(x_size, y_size, sigma_x, sigma_y, x_center=None, y_center=None, theta=0):
   
     x_center = (x_size - 1)/2 if x_center is None else x_center
@@ -181,7 +192,7 @@ def draw_umich_gaussian_oval(heatmap, center, radius_h, radius_w, k=1):
   # import pdb; pdb.set_trace()
   radius_h, radius_w = int(radius_h), int(radius_w)
   diameter_h, diameter_w = 2 * radius_h + 1, 2 * radius_w + 1
-  gaussian = gaussian2D_oval(y_size=diameter_h, x_size=diameter_w, sigma_y=diameter_h / 4, sigma_x=diameter_w / 4)
+  gaussian = gaussian2D_oval(y_size=diameter_h, x_size=diameter_w, sigma_y=diameter_h / 5, sigma_x=diameter_w / 5)
   
   x, y = int(center[0]), int(center[1])
 

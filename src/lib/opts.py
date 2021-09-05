@@ -116,6 +116,7 @@ class opts(object):
     self.parser.add_argument('--kmf_append', action='store_true')
     self.parser.add_argument('--kmf_pit', action='store_true')
     self.parser.add_argument('--keep_att', action='store_true')
+    self.parser.add_argument('--guss_rad', action='store_true')
 
     # input
     self.parser.add_argument('--input_res', type=int, default=-1, 
@@ -258,6 +259,9 @@ class opts(object):
     self.parser.add_argument('--att_fp_disturb', type=float, default=0)
     self.parser.add_argument('--att_disturb_dist', type=float, default=0.05)
     self.parser.add_argument('--att_track_lost_disturb', type=float, default=0)
+    self.parser.add_argument('--init_conf', type=float, default=0.6)
+
+    
 
 
     # CondInst
