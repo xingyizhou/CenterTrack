@@ -678,8 +678,9 @@ class GenericDataset(data.Dataset):
 
     if (h > 0 and w > 0):
       ct = np.array([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
-      if self.opt.guss_rad and init:
-        conf = self.opt.init_conf
+      if self.opt.guss_rad:
+        min_overlap = 0.2 if init else 0.6
+        conf = self.opt.init_conf if init else 1
         radius = gaussian_radius_center((math.ceil(h), math.ceil(w)), min_overlap=0.2)
       else:
         radius = gaussian_radius((math.ceil(h), math.ceil(w)))
@@ -692,7 +693,7 @@ class GenericDataset(data.Dataset):
       conf = conf if np.random.random() > self.opt.att_lost_disturb else 0
       ct_int = ct.astype(np.int32)
       if self.opt.guss_oval:
-        radius = radius if (self.opt.guss_rad and init) else 0
+        radius = radius if (self.opt.guss_rad and init) or (self.opt.guss_rad and self.opt.guss_rad_always) else 0
         draw_umich_gaussian_oval(ret['kmf_att'][0], ct_int, radius_h=h//2+radius, radius_w=w//2+radius, k=conf)
       else:
         draw_umich_gaussian(ret['kmf_att'][0], ct_int, radius, k=conf)
