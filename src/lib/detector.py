@@ -14,7 +14,7 @@ from model.model import create_model, load_model
 from model.decode import generic_decode
 from model.utils import flip_tensor, flip_lr_off, flip_lr
 from utils.image import get_affine_transform, affine_transform
-from utils.image import draw_umich_gaussian, gaussian_radius, draw_umich_gaussian_oval
+from utils.image import draw_umich_gaussian, gaussian_radius, draw_umich_gaussian_oval, gaussian_radius_center
 from utils.post_process import generic_post_process
 from utils.debugger import Debugger
 from utils.tracker import Tracker
@@ -316,13 +316,20 @@ class Detector(object):
           p_bbox = track['kmf'].predict()[0]
           p_bbox = self._trans_bbox(p_bbox, trans_input, inp_width, inp_height)
           p_h, p_w = p_bbox[3] - p_bbox[1], p_bbox[2] - p_bbox[0]
-          p_radius = gaussian_radius((math.ceil(p_h), math.ceil(p_w)))
+          init = (track['active'] == 1)
+          if self.opt.guss_rad:
+            min_overlap = 0.2 if init else 0.6
+            conf = self.opt.init_conf if init else 1
+            p_radius = gaussian_radius_center((math.ceil(p_h), math.ceil(p_w)), min_overlap=0.2)
+          else:
+            p_radius = gaussian_radius((math.ceil(p_h), math.ceil(p_w)))
           p_radius = max(0, int(p_radius))
           p_ct_int = np.array(
             [(p_bbox[0] + p_bbox[2]) / 2, (p_bbox[1] + p_bbox[3]) / 2], dtype=np.float32).astype(np.int32)
           if (p_h > 0) and (p_w > 0) and (p_ct_int[0] > 0) and (p_ct_int[1]> 0) and (p_ct_int[0] < inp_width) and (p_ct_int[1] < inp_height):
             if self.opt.guss_oval:
-              draw_umich_gaussian_oval(kmf_hm[0], p_ct_int, radius_h=h//2, radius_w=w//2)
+              p_radius = p_radius if (self.opt.guss_rad and init) or (self.opt.guss_rad and self.opt.guss_rad_always) else 0
+              draw_umich_gaussian_oval(kmf_hm[0], p_ct_int, radius_h=h//2+p_radius, radius_w=w//2+p_radius)
             else:
               draw_umich_gaussian(kmf_hm[0], p_ct_int, p_radius)
 
