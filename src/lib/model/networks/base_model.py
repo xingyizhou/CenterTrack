@@ -27,6 +27,7 @@ class BaseModel(nn.Module):
           head_kernel = opt.head_kernel
         else:
           head_kernel = 3
+        self.opt = opt
         self.num_stacks = num_stacks
         self.heads = heads
         for head in self.heads:
@@ -81,6 +82,15 @@ class BaseModel(nn.Module):
               else:
                 fill_fc_weights(fc)
             self.__setattr__(head, fc)
+        
+        if opt.kmf_layer_out:
+            self.kmf_hm_layer_out = nn.Sequential(
+            nn.Conv2d(1, last_channel, kernel_size=7, stride=1,
+                    padding=3, bias=False),
+            nn.BatchNorm2d(last_channel, momentum=BN_MOMENTUM),
+            nn.ReLU(inplace=True))
+        else:
+            self.kmf_hm_layer_out = None
 
     def img2feats(self, x):
       raise NotImplementedError
@@ -90,7 +100,8 @@ class BaseModel(nn.Module):
 
     def forward(self, x, pre_img=None, pre_hm=None, kmf_att=None):
       if (pre_hm is not None) or (pre_img is not None) or (kmf_att is not None):
-        feats = self.imgpre2feats(x, pre_img, pre_hm, kmf_att)
+        kmf_att_in = None if self.opt.kmf_layer_out else kmf_att
+        feats = self.imgpre2feats(x, pre_img, pre_hm, kmf_att_in)
       else:
         feats = self.img2feats(x)
       out = []
@@ -98,12 +109,22 @@ class BaseModel(nn.Module):
         for s in range(self.num_stacks):
           z = []
           for head in sorted(self.heads):
-              z.append(self.__getattr__(head)(feats[s]))
+              if 'hm' in head and self.kmf_hm_layer_out is not None and kmf_att is not None:
+                kmf_att_out = self.kmf_hm_layer_out(kmf_att[:, :, 0::self.opt.down_ratio, 0::self.opt.down_ratio])
+                feat_att = feats[s] * kmf_att_out + feats[s] 
+                z.append(self.__getattr__(head)(feat_att))
+              else:
+                z.append(self.__getattr__(head)(feats[s]))
           out.append(z)
       else:
         for s in range(self.num_stacks):
           z = {}
           for head in self.heads:
-              z[head] = self.__getattr__(head)(feats[s])
+              if 'hm' in head and self.kmf_hm_layer_out is not None and kmf_att is not None:
+                kmf_att_out = self.kmf_hm_layer_out(kmf_att[:, :, 0::self.opt.down_ratio, 0::self.opt.down_ratio])
+                feat_att = feats[s] * kmf_att_out + feats[s]
+                z[head] = self.__getattr__(head)(feat_att)
+              else:
+                z[head] = self.__getattr__(head)(feats[s])
           out.append(z)
       return out

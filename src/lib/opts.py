@@ -118,6 +118,8 @@ class opts(object):
     self.parser.add_argument('--keep_att', action='store_true')
     self.parser.add_argument('--guss_rad', action='store_true')
     self.parser.add_argument('--guss_rad_always', action='store_true')
+    self.parser.add_argument('--kmf_layer_out', action='store_true')
+
 
 
     # input
