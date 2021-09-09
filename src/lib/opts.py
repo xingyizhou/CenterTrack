@@ -204,6 +204,7 @@ class opts(object):
                              help='different strategy when handling segmentation mask disjoint: '
                                   'area | score | y_pos | class')
     self.parser.add_argument('--nms_kernel', type=int, default=3)
+    self.parser.add_argument('--kmf_confirm_age', type=int, default=0)
 
     # dataset
     self.parser.add_argument('--not_rand_crop', action='store_true',

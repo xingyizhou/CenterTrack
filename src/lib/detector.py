@@ -312,7 +312,7 @@ class Detector(object):
         ct_int = ct.astype(np.int32)
         if with_hm:
           draw_umich_gaussian(input_hm[0], ct_int, radius)
-        if with_kmf and track['age'] <= 1:
+        if with_kmf and track['age'] <= 1 and track['active'] >= self.opt.kmf_confirm_age:
           p_bbox = track['kmf'].predict()[0]
           p_bbox = self._trans_bbox(p_bbox, trans_input, inp_width, inp_height)
           p_h, p_w = p_bbox[3] - p_bbox[1], p_bbox[2] - p_bbox[0]
