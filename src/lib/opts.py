@@ -266,7 +266,9 @@ class opts(object):
     self.parser.add_argument('--att_track_lost_disturb', type=float, default=0)
     self.parser.add_argument('--init_conf', type=float, default=0.6)
 
-    
+    # Searching
+    self.parser.add_argument('--sch_feat_channel', default=8,type=int, help='.')
+    self.parser.add_argument('--sch_weight', default= 1., type=float, help='')
 
 
     # CondInst
@@ -421,15 +423,19 @@ class opts(object):
     opt.heads = {'hm': opt.num_classes, 'reg': 2, 'wh': 2}
 
     if 'tracking' in opt.task:
-      opt.heads.update({'tracking': 2})
-
+      if opt.schtrack:
+        opt.heads.update({'sch': opt.sch_feat_channel,
+                          'sch_weight': 2*opt.sch_feat_channel**2 + 5*opt.sch_feat_channel + 1})
+      else:
+        opt.heads.update({'tracking': 2})
+      
     if 'seg' in opt.task:
       opt.heads.update({
         'seg': opt.seg_feat_channel,
         'conv_weight': 2*opt.seg_feat_channel**2 + 5*opt.seg_feat_channel + 1,
         })
       if not opt.mots_use_all_head:
-        opt.wh_weight = 0
+        #opt.wh_weight = 0
         opt.off_weight = 0
     if 'ddd' in opt.task:
       opt.heads.update({'dep': 1, 'rot': 8, 'dim': 3, 'amodel_offset': 2})
@@ -460,7 +466,9 @@ class opts(object):
                    'nuscenes_att': opt.nuscenes_att_weight,
                    'velocity': opt.velocity_weight,
                    'seg': opt.seg_weight,
-                   'conv_weight': -1 }
+                   'conv_weight': -1,
+                   'sch': opt.sch_weight,
+                   'sch_weight': -1 }
     opt.weights = {head: weight_dict[head] for head in opt.heads}
     for head in opt.weights:
       if opt.weights[head] == 0:

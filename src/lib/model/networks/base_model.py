@@ -91,7 +91,10 @@ class BaseModel(nn.Module):
       raise NotImplementedError
 
     def forward(self, x, pre_img=None, pre_hm=None, kmf_att=None):
-      if (pre_hm is not None) or (pre_img is not None) or (kmf_att is not None):
+      if (pre_img is not None) and (self.opt.schtrack):
+        feats = self.img2feats(x)
+        pre_feats = self.img2feats(pre_img[:, 0, :])
+      elif (pre_hm is not None) or (pre_img is not None) or (kmf_att is not None):
         kmf_att_in = None if self.opt.kmf_layer_out else kmf_att
         feats = self.imgpre2feats(x, pre_img, pre_hm, kmf_att_in)
       else:
@@ -107,6 +110,10 @@ class BaseModel(nn.Module):
         for s in range(self.num_stacks):
           z = {}
           for head in self.heads:
-              z[head] = self.__getattr__(head)(feats[s])
+              if 'sch_weight' in head:
+                assert pre_feats is not None
+                z[head] = self.__getattr__(head)(pre_feats[s])
+              else:
+                z[head] = self.__getattr__(head)(feats[s])
           out.append(z)
       return out

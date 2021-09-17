@@ -11,7 +11,7 @@ from model.data_parallel import DataParallel
 from utils.utils import AverageMeter
 
 from model.losses import FastFocalLoss, RegWeightedL1Loss
-from model.losses import BinRotLoss, WeightedBCELoss, SegDiceLoss, MTLoss
+from model.losses import BinRotLoss, WeightedBCELoss, SegDiceLoss, MTLoss, SchLoss
 from model.decode import generic_decode
 from model.utils import _sigmoid, flip_tensor, flip_lr_off, flip_lr
 from utils.debugger import Debugger
@@ -32,6 +32,8 @@ class GenericLoss(torch.nn.Module):
       self.crit_nuscenes_att = WeightedBCELoss()
     if 'seg' in opt.heads:
       self.crit_seg = SegDiceLoss(opt.seg_feat_channel)
+    if 'sch' in opt.heads:
+      self.crit_sch = SchLoss(opt.sch_feat_channel, opt=opt)
     #if opt.mtl:
     self.mtl_criterion = MTLoss(opt.heads)
     self.opt = opt
@@ -43,6 +45,8 @@ class GenericLoss(torch.nn.Module):
       output['hm_hp'] = _sigmoid(output['hm_hp'])
     if 'dep' in output:
       output['dep'] = 1. / (output['dep'].sigmoid() + 1e-6) - 1.
+    if 'hm_track' in output:
+      output['hm_track'] = _sigmoid(output['hm_track'])
     return output
 
   def forward(self, outputs, batch):
@@ -58,6 +62,9 @@ class GenericLoss(torch.nn.Module):
       if 'seg' in output:
         losses['seg'] += self.crit_seg(output['seg'],output['conv_weight'], 
                                       batch['mask'], batch['ind'], batch['seg_mask']) / opt.num_stacks
+      if 'sch' in output:
+        losses['sch'] += self.crit_sch(output['sch'], output['sch_weight'], 
+                                      batch['mask'], batch['pre_ind'], batch['hm_track'], batch['ind']) / opt.num_stacks
       
       regression_heads = [
         'reg', 'wh', 'tracking', 'ltrb', 'ltrb_amodal', 'hps', 
