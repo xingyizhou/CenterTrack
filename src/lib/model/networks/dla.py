@@ -268,14 +268,6 @@ class DLA(nn.Module):
                     padding=3, bias=False),
             nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
             nn.ReLU(inplace=True))
-        if opt.kmf_layer:
-            self.kmf_hm_layer = nn.Sequential(
-            nn.Conv2d(1, channels[0], kernel_size=7, stride=1,
-                    padding=3, bias=False),
-            nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
-            nn.ReLU(inplace=True))
-        else:
-            self.kmf_hm_layer = None
         
 
 
@@ -312,14 +304,6 @@ class DLA(nn.Module):
     def forward(self, x, pre_img=None, pre_hm=None, kmf_att=None):
         y = []
         x = self.base_layer(x)
-
-        if kmf_att is not None:
-            if self.kmf_hm_layer:
-                kmf_att = self.kmf_hm_layer(kmf_att)
-            if self.opt.kmf_append:
-                x = x + x * kmf_att
-            else:
-                x = x * kmf_att
         
         if pre_img is not None: # (b, n, c, h, w)
             for i in range(pre_img.size()[1]):

@@ -83,14 +83,6 @@ class BaseModel(nn.Module):
                 fill_fc_weights(fc)
             self.__setattr__(head, fc)
         
-        if opt.kmf_layer_out:
-            self.kmf_hm_layer_out = nn.Sequential(
-            nn.Conv2d(1, last_channel, kernel_size=7, stride=1,
-                    padding=3, bias=False),
-            nn.BatchNorm2d(last_channel, momentum=BN_MOMENTUM),
-            nn.ReLU(inplace=True))
-        else:
-            self.kmf_hm_layer_out = None
 
     def img2feats(self, x):
       raise NotImplementedError
@@ -109,22 +101,12 @@ class BaseModel(nn.Module):
         for s in range(self.num_stacks):
           z = []
           for head in sorted(self.heads):
-              if 'hm' in head and self.kmf_hm_layer_out is not None and kmf_att is not None:
-                kmf_att_out = self.kmf_hm_layer_out(kmf_att[:, :, 0::self.opt.down_ratio, 0::self.opt.down_ratio])
-                feat_att = feats[s] * kmf_att_out + feats[s] 
-                z.append(self.__getattr__(head)(feat_att))
-              else:
-                z.append(self.__getattr__(head)(feats[s]))
+              z.append(self.__getattr__(head)(feats[s]))
           out.append(z)
       else:
         for s in range(self.num_stacks):
           z = {}
           for head in self.heads:
-              if 'hm' in head and self.kmf_hm_layer_out is not None and kmf_att is not None:
-                kmf_att_out = self.kmf_hm_layer_out(kmf_att[:, :, 0::self.opt.down_ratio, 0::self.opt.down_ratio])
-                feat_att = feats[s] * kmf_att_out + feats[s]
-                z[head] = self.__getattr__(head)(feat_att)
-              else:
-                z[head] = self.__getattr__(head)(feats[s])
+              z[head] = self.__getattr__(head)(feats[s])
           out.append(z)
       return out
