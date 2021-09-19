@@ -156,12 +156,12 @@ class GenericDataset(data.Dataset):
 
       pre_imgs = [self._get_input(pre_image, trans_input_pre) for pre_image in pre_images]
       pre_img, pre_hm, pre_cts, track_ids = self._get_pre_dets(
-        pre_imgs, pre_annss, trans_input_pre, trans_output_pre)
+        pre_imgs, pre_annss, trans_input_pre, trans_output_pre, ret)
       ret['pre_img'] = np.array(pre_imgs[-opt.num_pre_imgs_input:])
       if opt.pre_hm:
         ret['pre_hm'] = pre_hm
     
-    ### init samples
+        ### init samples
     self._init_ret(ret, gt_det)
     calib = self._get_calib(img_info, width, height)
 
@@ -294,7 +294,8 @@ class GenericDataset(data.Dataset):
     return imgs, annss, frame_dists
 
 
-  def _get_pre_dets(self, pre_imgs, annss, trans_input, trans_output):
+  def _get_pre_dets(self, pre_imgs, annss, trans_input, trans_output, ret):
+    k = 0
     hm_h, hm_w = self.opt.input_h, self.opt.input_w
     down_ratio = self.opt.down_ratio
     trans = trans_input
@@ -324,6 +325,7 @@ class GenericDataset(data.Dataset):
         bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, hm_h - 1)
         h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
         max_rad = 1
+
 
         track_id = ann['track_id'] if 'track_id' in ann else -1
         non_dup = True if track_id not in track_ids else False
@@ -362,6 +364,7 @@ class GenericDataset(data.Dataset):
             pre_cts.append(ct / down_ratio)
           else:
             pre_cts.append(ct0 / down_ratio)
+
 
           track_ids.append(ann['track_id'] if 'track_id' in ann else -1)
           if reutrn_hm:
@@ -524,6 +527,10 @@ class GenericDataset(data.Dataset):
     if 'seg' in self.opt.task:
       ret['seg_mask'] = np.zeros(
       (max_objs, self.opt.output_h, self.opt.output_w), np.float32)
+    if self.opt.sch_track:
+      ret['hm_track'] = np.zeros(
+      (max_objs, self.opt.output_h, self.opt.output_w), np.float32)
+      ret['pre_ind'] = np.zeros((max_objs), dtype=np.int64)
     if self.opt.kmf_att:
       ret['kmf_att'] = np.zeros(
       (1, self.opt.input_h, self.opt.input_w), 
@@ -750,6 +757,13 @@ class GenericDataset(data.Dataset):
       else:
         gt_det['tracking'].append(np.zeros(2, np.float32))
     
+    if 'sch' in self.opt.heads:
+      if ann['track_id'] in track_ids:
+        draw_umich_gaussian(ret['hm_track'][k], ct_int, radius)
+        pre_ct = pre_cts[track_ids.index(ann['track_id'])]
+        pre_ct_int = pre_ct.astype(np.int32)
+        ret['pre_ind'][k] = pre_ct_int[1] * self.opt.output_w + pre_ct_int[0]
+      
     if 'seg' in self.opt.task and seg_mask is not None:
       ret['seg_mask'][k] = seg_mask
 
@@ -810,4 +824,15 @@ class GenericDataset(data.Dataset):
         gt_det['amodel_offset'].append([0, 0])
     
 
-  
+  def _format_gt_det(self, gt_det):
+    if (len(gt_det['scores']) == 0):
+      gt_det = {'bboxes': np.array([[0,0,1,1]], dtype=np.float32), 
+                'scores': np.array([1], dtype=np.float32), 
+                'clses': np.array([0], dtype=np.float32),
+                'cts': np.array([[0, 0]], dtype=np.float32),
+                'pre_cts': np.array([[0, 0]], dtype=np.float32),
+                'tracking': np.array([[0, 0]], dtype=np.float32),
+                'bboxes_amodal': np.array([[0, 0]], dtype=np.float32),
+                'hps': np.zeros((1, 17, 2), dtype=np.float32),}
+    gt_det = {k: np.array(gt_det[k], dtype=np.float32) for k in gt_det}
+    return gt_det

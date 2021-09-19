@@ -267,6 +267,7 @@ class opts(object):
     self.parser.add_argument('--init_conf', type=float, default=0.6)
 
     # Searching
+    self.parser.add_argument('--sch_track', action='store_true')
     self.parser.add_argument('--sch_feat_channel', default=8,type=int, help='.')
     self.parser.add_argument('--sch_weight', default= 1., type=float, help='')
 
@@ -423,7 +424,7 @@ class opts(object):
     opt.heads = {'hm': opt.num_classes, 'reg': 2, 'wh': 2}
 
     if 'tracking' in opt.task:
-      if opt.schtrack:
+      if opt.sch_track:
         opt.heads.update({'sch': opt.sch_feat_channel,
                           'sch_weight': 2*opt.sch_feat_channel**2 + 5*opt.sch_feat_channel + 1})
       else:

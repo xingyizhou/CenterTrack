@@ -91,7 +91,7 @@ class BaseModel(nn.Module):
       raise NotImplementedError
 
     def forward(self, x, pre_img=None, pre_hm=None, kmf_att=None):
-      if (pre_img is not None) and (self.opt.schtrack):
+      if (pre_img is not None) and (self.opt.sch_track):
         feats = self.img2feats(x)
         pre_feats = self.img2feats(pre_img[:, 0, :])
       elif (pre_hm is not None) or (pre_img is not None) or (kmf_att is not None):

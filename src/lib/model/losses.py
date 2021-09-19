@@ -308,13 +308,5 @@ class SchLoss(nn.Module):
 
         cat = torch.zeros_like(ind)
         hm_loss = self.hm_crit(hm.view(-1, 1, h, w), target.view(-1, 1, h, w), ind.view(-1, 1), mask.view(-1, 1), cat.view(-1, 1))
-        """
-        Arguments:
-          target: B x N x H x W
-        Arguments:
-          out, target: B x C x H x W
-          ind, mask: B x M
-          cat (category id for peaks): B x M
-        """
 
         return hm_loss
