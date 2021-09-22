@@ -61,22 +61,8 @@ class GenericLoss(torch.nn.Module):
         losses['seg'] += self.crit_seg(output['seg'],output['conv_weight'], 
                                       batch['mask'], batch['ind'], batch['seg_mask']) / opt.num_stacks
       if 'sch' in output:
-        
-        # if torch.isnan(output['sch']).any():
-        #     print(f'\nsch is nan')
-        #     print('sch', output['sch'])
-        #     print('batch[pre_img]:', batch['pre_img'])
-        #     print('batch[pre_img]:', batch['pre_img'].shape)
-        #     print('last_pre_img:', last_pre_img)
-        #     print('last_pre_img:', last_pre_img.shape)
-
-        #     import sys
-        #     sys.exit(0)
         losses['sch'] += self.crit_sch(output['sch'], output['sch_weight'], 
                                       batch['pre_mask'], batch['pre_ind'], batch['hm_track'], batch['ind']) / opt.num_stacks
-        # print('sch losses', losses['sch'])
-        # print('hm losses', losses['hm'])
-        #last_pre_img =  batch['pre_img']
 
       regression_heads = [
         'reg', 'wh', 'tracking', 'ltrb', 'ltrb_amodal', 'hps', 
