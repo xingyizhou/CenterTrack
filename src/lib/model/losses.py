@@ -10,7 +10,7 @@ from __future__ import print_function
 
 import torch
 import torch.nn as nn
-from .utils import _tranpose_and_gather_feat, _nms, _topk
+from .utils import _tranpose_and_gather_feat, _nms, _topk, _sigmoid
 import torch.nn.functional as F
 from utils.image import draw_umich_gaussian
 
@@ -94,7 +94,21 @@ class FastFocalLoss(nn.Module):
     pos_loss = pos_loss.sum()
     if num_pos == 0:
       return - neg_loss
-    return - (pos_loss + neg_loss) / num_pos
+    ffloss =  - (pos_loss + neg_loss) / num_pos
+    if torch.isnan(ffloss) or torch.isinf(ffloss):
+      print('ffloss', ffloss)
+      print('pos_loss', pos_loss)
+      print('neg_loss', neg_loss)
+      print('num_pos', num_pos)
+      print('pos_pred', pos_pred)
+      print('pos_pred_pix', pos_pred_pix)
+      print('ind', ind)
+      print('1', torch.log(pos_pred))
+      print('2', torch.pow(1 - pos_pred, 2))
+      print('3', mask.unsqueeze(2))
+
+
+    return ffloss
 
 def _reg_loss(regr, gt_regr, mask):
   ''' L1 regression loss
@@ -304,9 +318,32 @@ class SchLoss(nn.Module):
 
           conv3w=conv3w.contiguous().view(-1,self.feat_channel,1,1)
           conv3b=conv3b.contiguous().flatten()
-          hm[i] = F.conv2d(feat,conv3w,conv3b,groups=num_obj).sigmoid().squeeze()
+          hm[i] = F.conv2d(feat,conv3w,conv3b,groups=num_obj).squeeze()
+          # if torch.isnan(hm[i]).any():
+          #   print(f'\nhm[{i}] is nan')
+          #   print('x_rel_coord', x_rel_coord)
+          #   print('y_rel_coord', y_rel_coord)
+          #   print('sch_feat', sch_feat)
 
+
+        hm = _sigmoid(hm)
         cat = torch.zeros_like(ind)
         hm_loss = self.hm_crit(hm.view(-1, 1, h, w), target.view(-1, 1, h, w), ind.view(-1, 1), mask.view(-1, 1), cat.view(-1, 1))
-
+        if torch.isnan(hm_loss) or torch.isinf(hm_loss):
+          print('\nnan or inf')
+          print(hm_loss)
+          print('sum of hm', torch.sum(hm.view(batch_size, -1, h*w), dim=2))
+          #print('target', target)
+          print('sum of target', torch.sum(target.view(batch_size, -1, h*w), dim=2))
+          print('ind', ind)
+          print('mask', mask)
+          print('cat', cat)
+          import sys
+          sys.exit()
+        # print('loss', hm_loss)
+        # print('mask', torch.sum(mask))
+        if torch.sum(mask) <= 0:
+          hm_loss = hm_loss * 0
+        else:
+          hm_loss = hm_loss / torch.sum(mask) 
         return hm_loss

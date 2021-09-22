@@ -476,7 +476,9 @@ class opts(object):
         del opt.heads[head]
     opt.head_conv = {head: [opt.head_conv \
       for i in range(opt.num_head_conv if head != 'reg' else 1)] for head in opt.heads}
-    
+    opt.loss_order = ['hm', 'wh', 'reg', 'ltrb', 'hps', 'hm_hp', \
+      'hp_offset', 'dep', 'dim', 'rot', 'amodel_offset', \
+      'ltrb_amodal', 'tracking', 'nuscenes_att', 'velocity', 'seg', 'sch']
     print('input h w:', opt.input_h, opt.input_w)
     print('heads', opt.heads)
     print('weights', opt.weights)

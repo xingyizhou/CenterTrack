@@ -531,6 +531,7 @@ class GenericDataset(data.Dataset):
       ret['hm_track'] = np.zeros(
       (max_objs, self.opt.output_h, self.opt.output_w), np.float32)
       ret['pre_ind'] = np.zeros((max_objs), dtype=np.int64)
+      ret['pre_mask'] = np.zeros((max_objs), dtype=np.float32)
     if self.opt.kmf_att:
       ret['kmf_att'] = np.zeros(
       (1, self.opt.input_h, self.opt.input_w), 
@@ -751,7 +752,7 @@ class GenericDataset(data.Dataset):
     if 'tracking' in self.opt.heads:
       if ann['track_id'] in track_ids:
         pre_ct = pre_cts[track_ids.index(ann['track_id'])]
-        ret['tracking_mask'][k] = 1
+        #ret['tracking_mask'][k] = 1
         ret['tracking'][k] = pre_ct - ct_int
         gt_det['tracking'].append(ret['tracking'][k])
       else:
@@ -763,6 +764,7 @@ class GenericDataset(data.Dataset):
         pre_ct = pre_cts[track_ids.index(ann['track_id'])]
         pre_ct_int = pre_ct.astype(np.int32)
         ret['pre_ind'][k] = pre_ct_int[1] * self.opt.output_w + pre_ct_int[0]
+        ret['pre_mask'][k] = 1
       
     if 'seg' in self.opt.task and seg_mask is not None:
       ret['seg_mask'][k] = seg_mask
