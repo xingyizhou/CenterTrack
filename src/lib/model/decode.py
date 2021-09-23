@@ -88,7 +88,7 @@ def seg_decode(seg_feat, conv_weight, xs, ys, inds,  K):
     batch_size = seg_feat.size(0)
     feat_channel = seg_feat.size(1)
     h, w = seg_feat.size(-2), seg_feat.size(-1)
-    mask = torch.zeros((batch_size, K,h,w)).to(device=seg_feat.device)
+    seg_masks = torch.zeros((batch_size, K,h,w)).to(device=seg_feat.device)
     x_range = torch.arange(w).float().to(device=seg_feat.device)
     y_range = torch.arange(h).float().to(device=seg_feat.device)
     y_grid, x_grid = torch.meshgrid([y_range, x_range])
@@ -116,9 +116,9 @@ def seg_decode(seg_feat, conv_weight, xs, ys, inds,  K):
         conv3w = conv3w.contiguous().view(-1, feat_channel, 1, 1)
         conv3b = conv3b.contiguous().flatten()
         feat = F.conv2d(feat, conv3w, conv3b, groups=K).sigmoid().squeeze()
-        mask[i] = feat
+        seg_masks[i] = feat
 
-    return mask
+    return seg_masks
 
 def generic_decode(output, K=100, opt=None):
   if not ('hm' in output):
@@ -153,23 +153,8 @@ def generic_decode(output, K=100, opt=None):
   ys0 = ys0.view(batch, K, 1)
 
   if 'wh' in output:
-    wh = output['wh']
-    wh = _tranpose_and_gather_feat(wh, inds) # B x K x (F)
-    # wh = wh.view(batch, K, -1)
-    wh = wh.view(batch, K, 2)
-    wh[wh < 0] = 0
-    if wh.size(2) == 2 * cat: # cat spec
-      wh = wh.view(batch, K, -1, 2)
-      cats = clses.view(batch, K, 1, 1).expand(batch, K, 1, 2)
-      wh = wh.gather(2, cats.long()).squeeze(2) # B x K x 2
-    else:
-      pass
-    bboxes = torch.cat([xs - wh[..., 0:1] / 2, 
-                        ys - wh[..., 1:2] / 2,
-                        xs + wh[..., 0:1] / 2, 
-                        ys + wh[..., 1:2] / 2], dim=2)
+    bboxes = wh_decode(output['wh'], inds, xs, ys, K)
     ret['bboxes'] = bboxes
-    # print('ret bbox', ret['bboxes'])
  
   if 'seg' in output:
     seg_feat = output['seg']
@@ -178,6 +163,23 @@ def generic_decode(output, K=100, opt=None):
     torch.cuda.synchronize()
     seg_masks = seg_decode(seg_feat, conv_weight, xs0, ys0, inds,  K)
     ret['seg'] = seg_masks
+
+  if 'sch' in output:
+    sch_feat = output['sch']
+    sch_weight = output['sch_weight']
+    num_pre = pre_inds.size(1)
+    assert not opt.flip_test,"not support flip_test"
+    torch.cuda.synchronize()
+    track_score, track_inds, tys0, txs0 = sch_decode(sch_feat, sch_weight, pre_inds)
+    txs = txs0.view(batch, num_pre, 1) + 0.5
+    tys = tys0.view(batch, num_pre, 1) + 0.5
+    track_bboxes = wh_decode(output['wh'], track_inds, txs, tys, num_pre) # K v.s num_pre
+
+    ret['pre_inds'] = pre_inds
+    ret['track_inds'] = track_inds
+    ret['track_score'] = track_score
+    ret['track_bbox'] = track_bboxes
+    print(pre_inds, track_inds, track_score, track_bboxes)
   
   if 'ltrb' in output:
     ltrb = output['ltrb']
@@ -231,3 +233,57 @@ def generic_decode(output, K=100, opt=None):
       [pre_xs.unsqueeze(2), pre_ys.unsqueeze(2)], dim=2)
   
   return ret
+
+
+  def sch_decode(sch_feat, conv_weight, pre_ind):
+      """
+      Arguments:
+        sch_feats: B x N x H x W
+        pre_ind: B x M
+      """
+      num_obj = pre_ind.size(1)
+      batch_size = sch_feat.size(0)
+      feat_channel = sch_feat.size(1)
+      weight = _tranpose_and_gather_feat(conv_weight, pre_ind)
+      h, w = sch_feat.size(-2), sch_feat.size(-1)
+      x, y = pre_ind%w,pre_ind/w
+      x_range = torch.arange(w).float().to(device=sch_feat.device)
+      y_range = torch.arange(h).float().to(device=sch_feat.device)
+      hm = torch.zeros((batch_size, num_obj, h, w)).to(device=sch_feat.device)
+      y_grid, x_grid = torch.meshgrid([y_range, x_range])
+      for i in range(batch_size):
+        conv1w,conv1b,conv2w,conv2b,conv3w,conv3b= \
+            torch.split(weight[i],[(feat_channel+2)*feat_channel,feat_channel,
+                                      feat_channel**2,feat_channel,
+                                      feat_channel, 1],dim=-1)
+        y_rel_coord = (y_grid[None,None] - y[i].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).float())/128.
+        x_rel_coord = (x_grid[None,None] - x[i].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).float())/128.
+        feat = sch_feat[i][None].repeat([num_obj,1,1,1])
+        feat = torch.cat([feat,x_rel_coord, y_rel_coord],dim=1).view(1,-1,h,w)
+
+        conv1w=conv1w.contiguous().view(-1, feat_channel+2,1,1)
+        conv1b=conv1b.contiguous().flatten()
+        feat = F.conv2d(feat,conv1w,conv1b,groups=num_obj).relu()
+
+        conv2w=conv2w.contiguous().view(-1, feat_channel,1,1)
+        conv2b=conv2b.contiguous().flatten()
+        feat = F.conv2d(feat,conv2w,conv2b,groups=num_obj).relu()
+
+        conv3w=conv3w.contiguous().view(-1, feat_channel,1,1)
+        conv3b=conv3b.contiguous().flatten()
+        hm[i] = F.conv2d(feat,conv3w,conv3b,groups=num_obj).sigmoid().squeeze()
+        
+      hm = _nms(hm, kernel=opt.nms_kernel)
+      scores, inds, _, ys0, xs0 = _topk(hm.view(-1, 1, h, w), K=1)
+      return scores.view(batch_size, num_obj), inds.view(batch_size, num_obj), ys0.view(batch_size, num_obj), xs0.view(batch_size, num_obj)
+
+def wh_decode(wh_feat, inds, x0, y0, K):
+    batch = wh_feat.size(0)
+    wh = _tranpose_and_gather_feat(wh_feat, inds) # B x K x (F)
+    wh = wh.view(batch, K, 2)
+    wh[wh < 0] = 0
+    bboxes = torch.cat([xs - wh[..., 0:1] / 2, 
+                        ys - wh[..., 1:2] / 2,
+                        xs + wh[..., 0:1] / 2, 
+                        ys + wh[..., 1:2] / 2], dim=2)
+    return bboxes
