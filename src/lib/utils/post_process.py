@@ -29,7 +29,7 @@ def get_alpha(rot):
   return alpha1 * idx + alpha2 * (1 - idx)
 
 def generic_post_process(
-  opt, dets, c, s, h, w, num_classes, calibs=None, height=-1, width=-1):
+  opt, dets, c, s, h, w, num_classes, calibs=None, height=-1, width=-1, pid2track=None):
   """
     h: out_height
     w: out_width
@@ -116,6 +116,22 @@ def generic_post_process(
       preds = make_disjoint(preds, strategy)
 
     ret.append(preds)
-  
+  pre_ret = []
+  if 'track_scores' in dets:
+    for i in range(len(dets['track_scores'])):
+      track_preds = []
+      trans = get_affine_transform(
+        c[i], s[i], 0, (w, h), inv=1).astype(np.float32)
+      for j in range(len(dets['track_scores'][i])):
+        item = {}
+        item['track_score'] = dets['track_scores'][i][j]
+        if pid2track is not None:
+          item['tracking_id'] = pid2track[dets['pre_inds'][i][j]]
+        if 'track_bboxes' in dets:
+          bbox = transform_preds_with_trans(
+            dets['track_bboxes'][i][j].reshape(2, 2), trans).reshape(4)
+          item['track_bbox'] = bbox
+      track_preds.append(item)
+    pre_ret.append(track_preds)
 
-  return ret
+  return ret, pre_ret

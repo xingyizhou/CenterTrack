@@ -270,6 +270,7 @@ class opts(object):
     self.parser.add_argument('--sch_track', action='store_true')
     self.parser.add_argument('--sch_feat_channel', default=8,type=int, help='.')
     self.parser.add_argument('--sch_weight', default= 1., type=float, help='')
+    self.parser.add_argument('--sch_thresh', type=float, default=0.3)
 
 
     # CondInst

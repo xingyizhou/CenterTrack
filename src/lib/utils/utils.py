@@ -64,3 +64,27 @@ def make_disjoint(objects, strategy):
 
 
     return objects_disjoint
+
+def np_iou(boxes1, boxes2):
+    """
+    Calculate IOU between a bounding box and a set of bounding boxes.
+    :param box: [x1,y1,x2,y2]
+    :param boxes:[[x1,y1,x2,y2],[x1,y1,x2,y2],[x1,y1,x2,y2]]
+    :return: corresponding IOU values
+    """
+    def run(box, boxes):
+        ww = np.maximum(np.minimum(box[0] + box[2], boxes[:, 0] + boxes[:, 2]) -
+                        np.maximum(box[0], boxes[:, 0]),
+                        0)
+        hh = np.maximum(np.minimum(box[1] + box[3], boxes[:, 1] + boxes[:, 3]) -
+                        np.maximum(box[1], boxes[:, 1]),
+                        0)
+        uu = box[2] * box[3] + boxes[:, 2] * boxes[:, 3]
+        return ww * hh / (uu - ww * hh)
+
+    results = []
+    if len(boxes2) == 0:
+        return np.array(results)
+    for b in boxes1:
+        results.append(run(b, boxes2))
+    return np.array(results)

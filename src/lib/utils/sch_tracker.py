@@ -2,9 +2,10 @@ import numpy as np
 from sklearn.utils.linear_assignment_ import linear_assignment
 from numba import jit
 import copy
+from .utils import np_iou
 from .kalman_filter import KalmanBoxTracker
 
-class Tracker(object):
+class SchTracker(object):
   def __init__(self, opt):
     self.opt = opt
     self.reset()
@@ -27,29 +28,29 @@ class Tracker(object):
     self.id_count = 0
     self.tracks = []
 
-  def step(self, results, pre_results=None, public_det=None):
+  def step(self, results, track_results, public_det=None):
     N = len(results)
     M = len(self.tracks)
 
     dets = np.array(
-      [det['ct'] + det['tracking'] for det in results], np.float32) # N x 2
-    track_size = np.array([((track['bbox'][2] - track['bbox'][0]) * \
-      (track['bbox'][3] - track['bbox'][1])) \
-      for track in self.tracks], np.float32) # M
+      [det['bbox']  for det in results], np.float32) # N x 2
     track_cat = np.array([track['class'] for track in self.tracks], np.int32) # M
-    item_size = np.array([((item['bbox'][2] - item['bbox'][0]) * \
-      (item['bbox'][3] - item['bbox'][1])) \
-      for item in results], np.float32) # N
     item_cat = np.array([item['class'] for item in results], np.int32) # N
-    tracks = np.array(
-      [pre_det['ct'] for pre_det in self.tracks], np.float32) # M x 2
-    dist = (((tracks.reshape(1, -1, 2) - \
-              dets.reshape(-1, 1, 2)) ** 2).sum(axis=2)) # N x M
-
-    invalid = ((dist > track_size.reshape(1, M)) + \
-      (dist > item_size.reshape(N, 1)) + \
+    tracks = []
+    for pre_det in self.tracks:
+      match = False
+      for tracking in track_results:
+        if pre_det['tracking_id'] == tracking['tracking_id']:
+          match = True
+          tracks.append(tracking['track_bbox'])
+          break
+      if not match:
+        tracks.append(pre_det['bbox'])
+    tracks = np.array(tracks,  np.float32)
+    ious = np_iou(dets, tracks)
+    dist = 1 - ious
+    invalid = ((dist >= 0.99) + \
       (item_cat.reshape(N, 1) != track_cat.reshape(1, M))) > 0
-    #invalid =  (item_cat.reshape(N, 1) != track_cat.reshape(1, M)) > 0
     dist = dist + invalid * 1e18
     
     if self.opt.hungarian:

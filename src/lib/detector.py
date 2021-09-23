@@ -18,6 +18,7 @@ from utils.image import draw_umich_gaussian, gaussian_radius, draw_umich_gaussia
 from utils.post_process import generic_post_process
 from utils.debugger import Debugger
 from utils.tracker import Tracker
+from utils.sch_tracker import SchTracker
 from dataset.dataset_factory import get_dataset
 
 import pycocotools.mask as mask_utils
@@ -52,7 +53,7 @@ class Detector(object):
     self.pre_images = None
     self.pre_image_ori = None
     self.age_images = []
-    self.tracker = Tracker(opt)
+    self.tracker = SchTracker(opt) if opt.sch_track else Tracker(opt)
     self.debugger = Debugger(opt=opt, dataset=self.trained_dataset)
 
 
@@ -64,6 +65,7 @@ class Detector(object):
 
     # read image
     pre_processed = False
+    pid2track = None
     if isinstance(image_or_path_or_tensor, np.ndarray):
       image = image_or_path_or_tensor
     elif type(image_or_path_or_tensor) == type (''): 
@@ -78,6 +80,7 @@ class Detector(object):
     load_time += (loaded_time - start_time)
     
     detections = []
+    trackings = []
 
     # for multi-scale testing
     for scale in self.opt.test_scales:
@@ -98,7 +101,7 @@ class Detector(object):
       images = images.to(self.opt.device, non_blocking=self.opt.non_block_test)
 
       # initializing tracker
-      pre_hms, pre_inds = None, None
+      pre_hms, pre_inds, kmf_hms = None, None, None
       if self.opt.tracking:
         # initialize the first frame
         if self.pre_images is None:
@@ -108,14 +111,16 @@ class Detector(object):
           self.pre_images = p_images
           self.tracker.init_track(
             meta['pre_dets'] if 'pre_dets' in meta else [])
-        if self.opt.pre_hm:
+        if self.opt.pre_hm or self.opt.sch_track:
           # render input heatmap from tracker status
           # pre_inds is not used in the current version.
           # We used pre_inds for learning an offset from previous image to
           # the current image.
-          pre_images, pre_hms, pre_inds, kmf_hms = self._get_additional_inputs(
+          pre_images, pre_hms, pre_inds, kmf_hms, track_ids = self._get_additional_inputs(
             self.tracker.tracks, meta, self.pre_images[:, 0, :], self.age_images, 
             with_hm=not self.opt.zero_pre_hm, with_kmf=self.opt.kmf_att)
+          
+          pid2track = {int(pre_ind.cpu().detach().numpy()): track_id for pre_ind, track_id in zip(pre_inds[0], track_ids[0])}
           if self.opt.num_pre_imgs_input > 1:
             #self.pre_images[:, 0, :] = pre_images # could be failed
             mask = torch.zeros_like(self.pre_images, device=self.pre_images.device, dtype=torch.bool)
@@ -131,18 +136,19 @@ class Detector(object):
       # output: the output feature maps, only used for visualizing
       # dets: output tensors after extracting peaks
       output, dets, forward_time = self.process(
-        images, self.pre_images, pre_hms, pre_inds, kmf_hms,return_time=True)
+        images, self.pre_images, pre_hms, pre_inds, kmf_hms, return_time=True)
       net_time += forward_time - pre_process_time
       decode_time = time.time()
       dec_time += decode_time - forward_time
       
       # convert the cropped and 4x downsampled output coordinate system
       # back to the input image coordinate system
-      result = self.post_process(dets, meta, scale)
+      result, track_result = self.post_process(dets, meta, scale, pid2track)
       post_process_time = time.time()
       post_time += post_process_time - decode_time
 
       detections.append(result)
+      trackings.append(track_result)
       if self.opt.debug >= 2:
         self.debug(
           self.debugger, images, result, output, scale, 
@@ -151,6 +157,8 @@ class Detector(object):
 
     # merge multi-scale testing results
     results = self.merge_outputs(detections)
+    track_results = self.merge_track_outputs(trackings)
+
     torch.cuda.synchronize()
     end_time = time.time()
     merge_time += end_time - post_process_time
@@ -159,12 +167,7 @@ class Detector(object):
       # public detection mode in MOT challenge
       public_det = meta['cur_dets'] if self.opt.public_det else None
       # add tracking id to results
-      results = self.tracker.step(results, public_det) 
-      #self.pre_images = images
-      # self.pre_images[:, :-1, :] = self.pre_images[:, 1:, :]
-      # mask = torch.zeros_like(self.pre_images, device=self.pre_images.device, dtype=torch.bool)
-      # mask[0, -1, :] = True
-      # self.pre_images = self.pre_images.masked_scatter(mask.byte(), images.squeeze(0))
+      results = self.tracker.step(results, track_results, public_det) 
       self.age_images.append(images.squeeze(0))
       if len(self.age_images) > max(self.opt.max_age):
         self.age_images.pop(0)
@@ -293,6 +296,7 @@ class Detector(object):
     kmf_hm = np.zeros((1, inp_height, inp_width), dtype=np.float32)
 
     output_inds = []
+    track_ids = []
     for track in tracks:
       if track['score'] < self.opt.pre_thresh[track['class']-1]: #or det['active'] == 0:
         continue
@@ -337,6 +341,7 @@ class Detector(object):
           [(bbox_out[0] + bbox_out[2]) / 2, 
            (bbox_out[1] + bbox_out[3]) / 2], dtype=np.int32)
         output_inds.append(ct_out[1] * out_width + ct_out[0])
+        track_ids.append(track['tracking_id'])
       if track['age'] > 1 and self.opt.paste_up:
         track['segmentation'] = track['seg']
         masks_to_be_paste = self.merge_masks_as_input([track], trans_input)
@@ -360,7 +365,8 @@ class Detector(object):
     
     output_inds = np.array(output_inds, np.int64).reshape(1, -1)
     output_inds = torch.from_numpy(output_inds).to(self.opt.device)
-    return pre_images, input_hm, output_inds, kmf_hm
+    track_ids = np.array(track_ids, np.int64).reshape(1, -1)
+    return pre_images, input_hm, output_inds, kmf_hm, track_ids
 
   def merge_masks_as_input(self, anns, trans_input):
       rles = [ann['segmentation'] for ann in anns]
@@ -441,11 +447,11 @@ class Detector(object):
     else:
       return output, dets
 
-  def post_process(self, dets, meta, scale=1):
-    dets = generic_post_process(
+  def post_process(self, dets, meta, scale=1, pid2track=None):
+    dets, tracks = generic_post_process(
       self.opt, dets, [meta['c']], [meta['s']],
       meta['out_height'], meta['out_width'], self.opt.num_classes,
-      [meta['calib']], meta['height'], meta['width'])
+      [meta['calib']], meta['height'], meta['width'], pid2track=pid2track)
     self.this_calib = meta['calib']
     if scale != 1:
       for i in range(len(dets[0])):
@@ -453,13 +459,24 @@ class Detector(object):
           if k in dets[0][i]:
             dets[0][i][k] = (np.array(
               dets[0][i][k], np.float32) / scale).tolist()
-    return dets[0]
+    if len(tracks) > 0:
+      return dets[0], tracks[0]
+    else:
+      return dets[0], []
 
   def merge_outputs(self, detections):
     assert len(self.opt.test_scales) == 1, 'multi_scale not supported!'
     results = []
     for i in range(len(detections[0])):
       if detections[0][i]['score'] > self.opt.out_thresh[detections[0][i]['class'] - 1]:
+        results.append(detections[0][i])
+    return results
+  
+  def merge_track_outputs(self, detections):
+    assert len(self.opt.test_scales) == 1, 'multi_scale not supported!'
+    results = []
+    for i in range(len(detections[0])):
+      if detections[0][i]['track_score'] > self.opt.sch_thresh:
         results.append(detections[0][i])
     return results
 
