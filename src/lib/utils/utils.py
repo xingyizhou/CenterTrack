@@ -73,6 +73,8 @@ def np_iou(boxes1, boxes2):
     :return: corresponding IOU values
     """
     def run(box, boxes):
+        if len(boxes)  == 0:
+            return []
         ww = np.maximum(np.minimum(box[0] + box[2], boxes[:, 0] + boxes[:, 2]) -
                         np.maximum(box[0], boxes[:, 0]),
                         0)
@@ -83,8 +85,6 @@ def np_iou(boxes1, boxes2):
         return ww * hh / (uu - ww * hh)
 
     results = []
-    if len(boxes2) == 0:
-        return np.array(results)
     for b in boxes1:
         results.append(run(b, boxes2))
     return np.array(results)

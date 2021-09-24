@@ -32,6 +32,7 @@ class SchTracker(object):
     N = len(results)
     M = len(self.tracks)
 
+
     dets = np.array(
       [det['bbox']  for det in results], np.float32) # N x 2
     track_cat = np.array([track['class'] for track in self.tracks], np.int32) # M
@@ -49,10 +50,13 @@ class SchTracker(object):
     tracks = np.array(tracks,  np.float32)
     ious = np_iou(dets, tracks)
     dist = 1 - ious
+    dist = dist.reshape(N, M)
+
     invalid = ((dist >= 0.99) + \
       (item_cat.reshape(N, 1) != track_cat.reshape(1, M))) > 0
     dist = dist + invalid * 1e18
-    
+
+
     if self.opt.hungarian:
       item_score = np.array([item['score'] for item in results], np.float32) # N
       dist[dist > 1e18] = 1e18
