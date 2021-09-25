@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.utils.linear_assignment_ import linear_assignment
 from numba import jit
 import copy
-from .utils import np_iou
+from .utils import np_iou, iou_score
 from .kalman_filter import KalmanBoxTracker
 
 class SchTracker(object):
@@ -37,19 +37,25 @@ class SchTracker(object):
       [det['bbox']  for det in results], np.float32) # N x 2
     track_cat = np.array([track['class'] for track in self.tracks], np.int32) # M
     item_cat = np.array([item['class'] for item in results], np.int32) # N
-    tracks = []
+    tracks = [] # [[(bbox_1, score_1)], [(bbox_2_1, score_2_1), (bbox_2_2, score_2_2)], ...]
     for pre_det in self.tracks:
       match = False
+      match_tracking = []
       for tracking in track_results:
         if pre_det['tracking_id'] == tracking['tracking_id']:
           match = True
-          tracks.append(tracking['track_bbox'])
-          break
-      if not match:
-        tracks.append(pre_det['bbox'])
-    tracks = np.array(tracks,  np.float32)
-    ious = np_iou(dets, tracks)
-    dist = 1 - ious
+          match_tracking.append((tracking['track_bbox'], tracking['track_score']))
+          #print('match_tracking', match_tracking)
+      if match:
+        #print('match!')
+        tracks.append(match_tracking)
+        #print('tracks', tracks)
+      else:
+        #print('not match.')
+        tracks.append([(pre_det['bbox'], 0.5)])
+    #tracks = np.array(tracks,  np.float32)
+    scores = iou_score(dets, tracks)
+    dist = 1 - scores
     dist = dist.reshape(N, M)
 
     invalid = ((dist >= 0.99) + \
@@ -65,7 +71,7 @@ class SchTracker(object):
       matched_indices = greedy_assignment(copy.deepcopy(dist))
     unmatched_dets = [d for d in range(dets.shape[0]) \
       if not (d in matched_indices[:, 0])]
-    unmatched_tracks = [d for d in range(tracks.shape[0]) \
+    unmatched_tracks = [d for d in range(len(tracks)) \
       if not (d in matched_indices[:, 1])]
     
     if self.opt.hungarian:

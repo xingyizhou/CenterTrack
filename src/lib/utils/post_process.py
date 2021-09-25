@@ -123,15 +123,16 @@ def generic_post_process(
       trans = get_affine_transform(
         c[i], s[i], 0, (w, h), inv=1).astype(np.float32)
       for j in range(len(dets['track_scores'][i])):
-        item = {}
-        item['track_score'] = dets['track_scores'][i][j]
-        if pid2track is not None:
-          item['tracking_id'] = pid2track[dets['pre_inds'][i][j]]
-        if 'track_bboxes' in dets:
-          bbox = transform_preds_with_trans(
-            dets['track_bboxes'][i][j].reshape(2, 2), trans).reshape(4)
-          item['track_bbox'] = bbox
-      track_preds.append(item)
+        for k in range(len(dets['track_scores'][i][j])):
+          item = {}
+          item['track_score'] = dets['track_scores'][i][j][k]
+          if pid2track is not None:
+            item['tracking_id'] = pid2track[dets['pre_inds'][i][j]]
+          if 'track_bboxes' in dets:
+            bbox = transform_preds_with_trans(
+              dets['track_bboxes'][i][j][k].reshape(2, 2), trans).reshape(4)
+            item['track_bbox'] = bbox
+        track_preds.append(item)
     pre_ret.append(track_preds)
 
   return ret, pre_ret

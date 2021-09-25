@@ -120,7 +120,7 @@ def seg_decode(seg_feat, conv_weight, xs, ys, inds,  K):
 
     return seg_masks
 
-def sch_decode(sch_feat, conv_weight, pre_ind):
+def sch_decode(sch_feat, conv_weight, pre_ind, track_K):
   """
   Arguments:
     sch_feats: B x N x H x W
@@ -159,8 +159,9 @@ def sch_decode(sch_feat, conv_weight, pre_ind):
     hm[i] = F.conv2d(feat,conv3w,conv3b,groups=num_obj).sigmoid().squeeze()
     
   hm = _nms(hm, kernel=5)
-  scores, inds, _, ys0, xs0 = _topk(hm.view(-1, 1, h, w), K=1)
-  return scores.view(batch_size, num_obj), inds.view(batch_size, num_obj), ys0.view(batch_size, num_obj), xs0.view(batch_size, num_obj), hm
+  scores, inds, ys0, xs0 = _topk_channel(hm, K=track_K)
+  return scores, inds, ys0, xs0, hm
+  #return scores.view(batch_size, num_obj, track_K), inds.view(batch_size, num_obj, track_K), ys0.view(batch_size, num_obj, track_K), xs0.view(batch_size, num_obj, track_K), hm
 
 def wh_decode(wh_feat, inds, xs, ys, K):
   batch = wh_feat.size(0)
@@ -218,6 +219,7 @@ def generic_decode(output, K=100, opt=None):
     ret['seg'] = seg_masks
 
   if 'sch' in output and 'pre_inds' in output and output['pre_inds'].size(1) > 0:
+    track_K = opt.track_K 
     sch_feat = output['sch']
     sch_weight = output['sch_weight']
     pre_inds = output['pre_inds']
@@ -225,15 +227,14 @@ def generic_decode(output, K=100, opt=None):
 
     assert not opt.flip_test,"not support flip_test"
     torch.cuda.synchronize()
-    track_score, track_inds, tys0, txs0, hms = sch_decode(sch_feat, sch_weight, pre_inds)
-    txs = txs0.view(batch, num_pre, 1) + 0.5
-    tys = tys0.view(batch, num_pre, 1) + 0.5
-    track_bboxes = wh_decode(output['wh'], track_inds, txs, tys, num_pre) # K v.s num_pre
-
-    ret['pre_inds'] = pre_inds
+    track_score, track_inds, tys0, txs0, hms = sch_decode(sch_feat, sch_weight, pre_inds, track_K=track_K) 
+    txs = txs0.view(batch, num_pre * track_K, 1) + 0.5
+    tys = tys0.view(batch, num_pre * track_K, 1) + 0.5
+    track_bboxes = wh_decode(output['wh'], track_inds.view(-1, num_pre * track_K), txs, tys, num_pre*track_K)
+    ret['pre_inds'] = pre_inds # (batch, num_pre)
     #ret['track_inds'] = track_inds
-    ret['track_scores'] = track_score
-    ret['track_bboxes'] = track_bboxes
+    ret['track_scores'] = track_score # (batch, num_pre, track_K)
+    ret['track_bboxes'] = track_bboxes.view(batch, num_pre, track_K, 4)
     ret['track_hms'] = hms
   
   if 'ltrb' in output:
