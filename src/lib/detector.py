@@ -151,7 +151,7 @@ class Detector(object):
       trackings.append(track_result)
       if self.opt.debug >= 2:
         self.debug(
-          self.debugger, images, result, output, scale, 
+          self.debugger, images, dets, output, scale, 
           pre_images=self.pre_images if not self.opt.no_pre_img else None, 
           pre_hms=pre_hms, kmf_hms=kmf_hms)
 
@@ -517,7 +517,12 @@ class Detector(object):
     if 'tracking' in output and self.opt.show_arrowmap:
       debugger.add_img(img, img_id='tracking_arrowmap')
       debugger.add_arrows(output['tracking'], img_id='tracking_arrowmap')
-
+    if 'track_hms' in dets:
+      for i, hm in enumerate(dets['track_hms'][0]):
+        pred = debugger.gen_colormap(hm[None, :])
+        debugger.add_blend_img(img, pred, img_id=f'track_hm_{i}')
+        debugger.add_arrow(
+            dets['pre_cts'][0][i]*4, (0, 0), img_id=f'track_hm_{i}')
 
 
   def show_results(self, debugger, image, results):

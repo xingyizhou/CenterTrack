@@ -160,7 +160,7 @@ def sch_decode(sch_feat, conv_weight, pre_ind):
     
   hm = _nms(hm, kernel=5)
   scores, inds, _, ys0, xs0 = _topk(hm.view(-1, 1, h, w), K=1)
-  return scores.view(batch_size, num_obj), inds.view(batch_size, num_obj), ys0.view(batch_size, num_obj), xs0.view(batch_size, num_obj)
+  return scores.view(batch_size, num_obj), inds.view(batch_size, num_obj), ys0.view(batch_size, num_obj), xs0.view(batch_size, num_obj), hm
 
 def wh_decode(wh_feat, inds, xs, ys, K):
   batch = wh_feat.size(0)
@@ -225,7 +225,7 @@ def generic_decode(output, K=100, opt=None):
 
     assert not opt.flip_test,"not support flip_test"
     torch.cuda.synchronize()
-    track_score, track_inds, tys0, txs0 = sch_decode(sch_feat, sch_weight, pre_inds)
+    track_score, track_inds, tys0, txs0, hms = sch_decode(sch_feat, sch_weight, pre_inds)
     txs = txs0.view(batch, num_pre, 1) + 0.5
     tys = tys0.view(batch, num_pre, 1) + 0.5
     track_bboxes = wh_decode(output['wh'], track_inds, txs, tys, num_pre) # K v.s num_pre
@@ -234,6 +234,7 @@ def generic_decode(output, K=100, opt=None):
     #ret['track_inds'] = track_inds
     ret['track_scores'] = track_score
     ret['track_bboxes'] = track_bboxes
+    ret['track_hms'] = hms
   
   if 'ltrb' in output:
     ltrb = output['ltrb']

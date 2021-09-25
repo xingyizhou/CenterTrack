@@ -242,6 +242,7 @@ class Debugger(object):
                       lineType=cv2.LINE_AA)
 
   def clear(self):
+    self.imgs = {}
     return
 
   def show_all_imgs(self, pause=False, Time=0):
