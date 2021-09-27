@@ -73,15 +73,15 @@ def np_iou(box, boxes):
     :param boxes:[[x1,y1,x2,y2],[x1,y1,x2,y2],[x1,y1,x2,y2]]
     :return: corresponding IOU values
     """
+    box = np.array(box)
+    boxes = np.array(boxes)
     if len(boxes)  == 0:
         return np.array([])
-    ww = np.maximum(np.minimum(box[0] + box[2], boxes[:, 0] + boxes[:, 2]) -
-                    np.maximum(box[0], boxes[:, 0]),
-                    0)
-    hh = np.maximum(np.minimum(box[1] + box[3], boxes[:, 1] + boxes[:, 3]) -
-                    np.maximum(box[1], boxes[:, 1]),
-                    0)
-    uu = box[2] * box[3] + boxes[:, 2] * boxes[:, 3]
+    ww = np.maximum(np.minimum(box[2], boxes[:, 2]) 
+                    - np.maximum(box[0], boxes[:, 0]), 0)
+    hh = np.maximum(np.minimum(box[3], boxes[:, 3]) -
+                    np.maximum(box[1], boxes[:, 1]), 0)
+    uu = (box[2] - box[0]) * (box[3] - box[1]) + (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1]+1e-8)
     return ww * hh / (uu - ww * hh)
 
 
@@ -106,11 +106,9 @@ def iou_score(dets, tracks):
         for prop in ts:
             bbox, score = prop
             ious = np_iou(bbox, dets)
-            # print('bbox', bbox)
-            # print('dets', dets)
-            # print(ious)
-            # print('score', score)
-            ratings.append(ious*0.5+score*0.5)
+            ious[ious < 0.01] = 0
+
+            ratings.append(ious*score)
 
         results.append(np.array(ratings).max(axis=0))
     results = np.array(results) # M x N

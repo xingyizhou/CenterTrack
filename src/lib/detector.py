@@ -154,7 +154,6 @@ class Detector(object):
           self.debugger, images, dets, output, scale, 
           pre_images=self.pre_images if not self.opt.no_pre_img else None, 
           pre_hms=pre_hms, kmf_hms=kmf_hms)
-
     # merge multi-scale testing results
     results = self.merge_outputs(detections)
     track_results = self.merge_track_outputs(trackings)

@@ -132,7 +132,6 @@ def generic_post_process(
             bbox = transform_preds_with_trans(
               dets['track_bboxes'][i][j][k].reshape(2, 2), trans).reshape(4)
             item['track_bbox'] = bbox
-        track_preds.append(item)
+          track_preds.append(item)
     pre_ret.append(track_preds)
-
   return ret, pre_ret
