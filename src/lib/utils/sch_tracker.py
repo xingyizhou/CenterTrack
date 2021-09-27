@@ -58,32 +58,14 @@ class SchTracker(object):
       (item_cat.reshape(N, 1) != track_cat.reshape(1, M))) > 0
     dist = dist + invalid * 1e18
 
-
     if self.opt.hungarian:
       item_score = np.array([item['score'] for item in results], np.float32) # N
       dist[dist > 1e18] = 1e18
-      #matched_indices = linear_assignment(dist)
       rind, cind = linear_assignment(dist)
       matched_indices = np.array([[r, c] for r, c in zip(rind, cind)], dtype=np.int32)
       matched_indices = matched_indices.reshape(-1, 2)
-      #print('m1', matched_indices)
-      matched_indices_g = greedy_assignment(copy.deepcopy(dist))
-      #print('m2', matched_indices_g)
-      if not np.array_equal(matched_indices, matched_indices_g):
-        print('cat', (item_cat.reshape(N, 1) == track_cat.reshape(1, M)))
-        print('iou', scores)
-        print('dist', dist)
-        print('m', matched_indices)
-        print('m_g', matched_indices_g)
-        print(scores[rind, cind])
-        print(dist[rind, cind])
     else:
       matched_indices = greedy_assignment_c(copy.deepcopy(dist))
-      # print('cat', (item_cat.reshape(N, 1) == track_cat.reshape(1, M)))
-      # print('iou', scores)
-      # print('dist', dist)
-      # print('m', matched_indices)
-      # print('tracks', tracks)
 
     unmatched_dets = [d for d in range(dets.shape[0]) \
       if not (d in matched_indices[:, 0])]
