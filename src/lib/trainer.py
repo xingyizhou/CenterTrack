@@ -61,8 +61,12 @@ class GenericLoss(torch.nn.Module):
         losses['seg'] += self.crit_seg(output['seg'],output['conv_weight'], 
                                       batch['mask'], batch['ind'], batch['seg_mask']) / opt.num_stacks
       if 'sch' in output:
-        losses['sch'] += self.crit_sch(output['sch'], output['sch_weight'], 
-                                      batch['pre_mask'], batch['pre_ind'], batch['hm_track'], batch['ind']) / opt.num_stacks
+        if opt.kmf_ind:
+          losses['sch'] += self.crit_sch(output['sch'], output['sch_weight'], 
+                                        batch['pre_mask'], batch['pre_ind'], batch['hm_track'], batch['ind'], batch['kmf_ind']) / opt.num_stacks
+        else:
+          losses['sch'] += self.crit_sch(output['sch'], output['sch_weight'], 
+                                        batch['pre_mask'], batch['pre_ind'], batch['hm_track'], batch['ind']) / opt.num_stacks
 
       regression_heads = [
         'reg', 'wh', 'tracking', 'ltrb', 'ltrb_amodal', 'hps', 
@@ -218,6 +222,10 @@ class Trainer(object):
     opt = self.opt
     if 'pre_hm' in batch:
       output.update({'pre_hm': batch['pre_hm']})
+    if 'pre_ind' in batch:
+      output.update({'pre_inds': batch['pre_ind']})
+    if 'kmf_ind' in batch:
+      output.update({'kmf_inds': batch['kmf_ind']})
     dets = generic_decode(output, K=opt.K, opt=opt)
     for k in dets:
       dets[k] = dets[k].detach().cpu().numpy()
@@ -264,7 +272,6 @@ class Trainer(object):
       # Predictions
       for k in range(len(dets['scores'][i])):
         if dets['scores'][i, k] > opt.vis_thresh:
-
           if 'seg' in dets:
             debugger.add_coco_seg(
               dets['seg'][i, k] , dets['clses'][i, k],
@@ -273,6 +280,7 @@ class Trainer(object):
             debugger.add_coco_bbox(
               dets['bboxes'][i, k] * opt.down_ratio, dets['clses'][i, k],
               dets['scores'][i, k], img_id='out_pred')
+          
 
           if 'ltrb_amodal' in opt.heads:
             debugger.add_coco_bbox(
@@ -290,7 +298,18 @@ class Trainer(object):
             debugger.add_arrow(
               dets['cts'][i][k] * opt.down_ratio, 
               dets['tracking'][i][k] * opt.down_ratio, img_id='pre_img_pred')
-
+      
+      if 'track_hms' in dets:
+        for idx, hm in enumerate(dets['track_hms'][0]):
+          if batch['pre_mask'][0][idx] > 0:
+            pred = debugger.gen_colormap(hm[None, :])
+            debugger.add_blend_img(img, pred, img_id=f'track_hm_{idx}')
+            if opt.kmf_ind:
+              debugger.add_arrow(
+              batch['kmf_cts'][0][idx], (0, 0), img_id=f'track_hm_{idx}') # not done
+            else:
+              debugger.add_arrow(
+              dets['pre_cts'][0][idx]*opt.down_ratio, (0, 0), img_id=f'track_hm_{idx}')
       # Ground truth
       debugger.add_img(img, img_id='out_gt')
       for k in range(len(dets_gt['scores'][i])):

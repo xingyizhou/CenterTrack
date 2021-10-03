@@ -92,6 +92,7 @@ class GenericDataset(data.Dataset):
     s = max(img.shape[0], img.shape[1]) * 1.0 if not self.opt.not_max_crop \
       else np.array([img.shape[1], img.shape[0]], np.float32)
     aug_s, rot, flipped, copy_and_pasted = 1, 0, 0, 0
+    kmf_cts = None
     if self.split == 'train':
       c, aug_s, rot = self._get_aug_param(c, s, width, height)
       s = s * aug_s
@@ -124,7 +125,7 @@ class GenericDataset(data.Dataset):
 
     pre_cts, track_ids = None, None
     if opt.tracking:
-      num_pre_data = opt.num_pre_data if opt.paste_up else 1
+      num_pre_data = opt.num_pre_data 
       pre_images, pre_annss, frame_dists = self._load_pre_data(
         img_info['video_id'], img_info['frame_id'], 
         img_info['sensor_id'] if 'sensor_id' in img_info else 1, max(num_pre_data, opt.num_pre_imgs_input))
@@ -165,8 +166,9 @@ class GenericDataset(data.Dataset):
     self._init_ret(ret, gt_det)
     calib = self._get_calib(img_info, width, height)
 
-    if opt.tracking and opt.kmf_att and opt.kmf_pit:
-      self._gen_kmf_att_hm(ret, pre_annss, trans_input)
+    if opt.tracking and (opt.kmf_ind or opt.kmf_att) and opt.kmf_pit:
+      kmf_trackers = self._gen_kmf_att_hm(ret, pre_annss, trans_input)
+      kmf_cts = [kmf_trackers[tid]['ct'] for tid in track_ids]
     
     num_objs = min(len(anns), self.max_objs)
     for k in range(num_objs):
@@ -196,10 +198,10 @@ class GenericDataset(data.Dataset):
 
       self._add_instance(
         ret, gt_det, k, cls_id, bbox, bbox_amodal, ann, trans_output, aug_s, 
-        calib, seg_mask, pre_cts, track_ids)
+        calib, seg_mask, pre_cts, track_ids, kmf_cts)
       
       if opt.kmf_att and not opt.kmf_pit:
-        self._add_kmf_att(ret=ret, ann=ann, trans_input=trans_input)
+        _ = self._add_kmf_att(ret=ret, ann=ann, trans_input=trans_input)
     if 'kmf_att' in ret and not opt.keep_att:
       ret['kmf_att'][0] = ret['kmf_att'][0] * 0.5 + 0.5
     if self.opt.debug > 0:
@@ -531,6 +533,8 @@ class GenericDataset(data.Dataset):
       ret['hm_track'] = np.zeros(
       (max_objs, self.opt.output_h, self.opt.output_w), np.float32)
       ret['pre_ind'] = np.zeros((max_objs), dtype=np.int64)
+      ret['kmf_ind'] = np.zeros((max_objs), dtype=np.int64)
+      ret['kmf_cts'] = np.zeros((max_objs, 2), dtype=np.int64)
       ret['pre_mask'] = np.zeros((max_objs), dtype=np.float32)
     if self.opt.kmf_att:
       ret['kmf_att'] = np.zeros(
@@ -669,9 +673,14 @@ class GenericDataset(data.Dataset):
             trackers[ann['track_id']]['age'] += 1
     for k in trackers:
       bbox = trackers[k]['kmf'].predict()[0]
-      self._add_kmf_att(ret=ret, bbox=bbox, trans_input=trans_input, init=(trackers[k]['age'] <= 0))
+      pred_ct = self._add_kmf_att(ret=ret, bbox=bbox, trans_input=trans_input, init=(trackers[k]['age'] <= 0), draw=(self.opt.kmf_att))
+      if pred_ct is None:
+        trackers.pop(k, None)
+      else:
+        trackers[k]['ct'] = pred_ct
+    return trackers
 
-  def _add_kmf_att(self, ret, trans_input, ann=None, bbox=None, init=False, conf=1):
+  def _add_kmf_att(self, ret, trans_input, ann=None, bbox=None, init=False, conf=1, draw=True):
     trans = trans_input
     hm_h, hm_w = self.opt.input_h, self.opt.input_w
     if bbox is None and ann is not None:
@@ -700,10 +709,10 @@ class GenericDataset(data.Dataset):
       ct[1] = ct[1] + np.random.randn() * self.opt.att_hm_disturb * h
       conf = conf if np.random.random() > self.opt.att_lost_disturb else 0
       ct_int = ct.astype(np.int32)
-      if self.opt.guss_oval:
+      if self.opt.guss_oval and draw:
         radius = radius if (self.opt.guss_rad and init) or (self.opt.guss_rad and self.opt.guss_rad_always) else 0
         draw_umich_gaussian_oval(ret['kmf_att'][0], ct_int, radius_h=h//2+radius, radius_w=w//2+radius, k=conf)
-      else:
+      elif draw:
         draw_umich_gaussian(ret['kmf_att'][0], ct_int, radius, k=conf)
 
       if np.random.random() < self.opt.att_fp_disturb: # generate false positive 
@@ -712,14 +721,17 @@ class GenericDataset(data.Dataset):
         ct2[0] = ct2[0] + np.random.randn() * self.opt.att_disturb_dist * w
         ct2[1] = ct2[1] + np.random.randn() * self.opt.att_disturb_dist * h 
         ct2_int = ct2.astype(np.int32)
-        if self.opt.guss_oval:
+        if self.opt.guss_oval and draw:
           draw_umich_gaussian_oval(ret['kmf_att'][0], ct2_int, radius_h=h//2, radius_w=w//2, k=conf)
-        else:
+        elif draw:
           draw_umich_gaussian(ret['kmf_att'][0], ct2_int, radius, k=conf)
+    else:
+      return None
+    return ct_int
 
   def _add_instance(
     self, ret, gt_det, k, cls_id, bbox, bbox_amodal, ann, trans_output,
-    aug_s, calib, seg_mask=None, pre_cts=None, track_ids=None):
+    aug_s, calib, seg_mask=None, pre_cts=None, track_ids=None, kmf_cts=None):
     h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
     if h <= 0 or w <= 0 or (seg_mask is not None and np.sum(seg_mask)<=0):
       return
@@ -764,6 +776,11 @@ class GenericDataset(data.Dataset):
         pre_ct = pre_cts[track_ids.index(ann['track_id'])]
         pre_ct_int = pre_ct.astype(np.int32)
         ret['pre_ind'][k] = pre_ct_int[1] * self.opt.output_w + pre_ct_int[0]
+        if kmf_cts is not None:
+          kmf_ct = kmf_cts[track_ids.index(ann['track_id'])]
+          kmf_ct_int = kmf_ct.astype(np.int32)
+          ret['kmf_ind'][k] = kmf_ct_int[1] * self.opt.output_w + kmf_ct_int[0]
+          ret['kmf_cts'][k] = kmf_ct
         ret['pre_mask'][k] = 1
       
     if 'seg' in self.opt.task and seg_mask is not None:

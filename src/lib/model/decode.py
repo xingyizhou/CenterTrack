@@ -120,7 +120,7 @@ def seg_decode(seg_feat, conv_weight, xs, ys, inds,  K):
 
     return seg_masks
 
-def sch_decode(sch_feat, conv_weight, pre_ind, track_K):
+def sch_decode(sch_feat, conv_weight, pre_ind, kmf_ind=None, track_K=1):
   """
   Arguments:
     sch_feats: B x N x H x W
@@ -131,7 +131,10 @@ def sch_decode(sch_feat, conv_weight, pre_ind, track_K):
   feat_channel = sch_feat.size(1)
   weight = _tranpose_and_gather_feat(conv_weight, pre_ind)
   h, w = sch_feat.size(-2), sch_feat.size(-1)
-  x, y = pre_ind%w,pre_ind/w
+  if kmf_ind is not None:
+    x, y = kmf_ind%w,kmf_ind/w
+  else:
+    x, y = pre_ind%w,pre_ind/w
   x_range = torch.arange(w).float().to(device=sch_feat.device)
   y_range = torch.arange(h).float().to(device=sch_feat.device)
   hm = torch.zeros((batch_size, num_obj, h, w)).to(device=sch_feat.device)
@@ -227,7 +230,9 @@ def generic_decode(output, K=100, opt=None):
 
     assert not opt.flip_test,"not support flip_test"
     torch.cuda.synchronize()
-    track_score, track_inds, tys0, txs0, hms = sch_decode(sch_feat, sch_weight, pre_inds, track_K=track_K) 
+    kmf_inds = output['kmf_inds'] if 'kmf_inds' in output else None
+    track_score, track_inds, tys0, txs0, hms = sch_decode(sch_feat, sch_weight, pre_inds, kmf_inds, track_K=track_K)
+
     txs = txs0.view(batch, num_pre * track_K, 1) + 0.5
     tys = tys0.view(batch, num_pre * track_K, 1) + 0.5
     track_bboxes = wh_decode(output['wh'], track_inds.view(-1, num_pre * track_K), txs, tys, num_pre*track_K)

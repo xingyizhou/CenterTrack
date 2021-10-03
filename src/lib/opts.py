@@ -111,6 +111,7 @@ class opts(object):
     self.parser.add_argument('--mots_use_all_head', action='store_true')
     self.parser.add_argument('--head_DCN', action='store_true')
     self.parser.add_argument('--kmf_att', action='store_true')
+    self.parser.add_argument('--kmf_ind', action='store_true')
     self.parser.add_argument('--kmf_layer', action='store_true')
     self.parser.add_argument('--guss_oval', action='store_true')
     self.parser.add_argument('--kmf_append', action='store_true')
@@ -268,7 +269,7 @@ class opts(object):
 
     # Searching
     self.parser.add_argument('--sch_track', action='store_true')
-    self.parser.add_argument('--sch_feat_channel', default=8,type=int, help='.')
+    self.parser.add_argument('--sch_feat_channel', default=16,type=int, help='.')
     self.parser.add_argument('--sch_weight', default= 1., type=float, help='')
     self.parser.add_argument('--sch_thresh', type=float, default=0.3)
     self.parser.add_argument('--track_K', type=int, default=1,

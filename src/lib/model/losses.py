@@ -269,7 +269,7 @@ class SchLoss(nn.Module):
         self.feat_channel=feat_channel
         self.hm_crit = FastFocalLoss(opt)
 
-    def forward(self, sch_feat, conv_weight, mask, pre_ind, target, ind):
+    def forward(self, sch_feat, conv_weight, mask, pre_ind, target, ind, kmf_ind=None):
         """
         Arguments:
           sch_feats, target: B x N x H x W
@@ -279,7 +279,10 @@ class SchLoss(nn.Module):
         batch_size = sch_feat.size(0)
         weight = _tranpose_and_gather_feat(conv_weight, pre_ind)
         h,w = sch_feat.size(-2), sch_feat.size(-1)
-        x,y = pre_ind%w,pre_ind/w
+        if kmf_ind is not None:
+          x,y = kmf_ind%w,kmf_ind/w
+        else:
+          x,y = pre_ind%w,pre_ind/w
         x_range = torch.arange(w).float().to(device=sch_feat.device)
         y_range = torch.arange(h).float().to(device=sch_feat.device)
         hm = torch.zeros_like(target)
@@ -311,6 +314,6 @@ class SchLoss(nn.Module):
         cat = torch.zeros_like(ind)
         hm_loss = self.hm_crit(hm.view(-1, 1, h, w), target.view(-1, 1, h, w), ind.view(-1, 1), mask.view(-1, 1), cat.view(-1, 1))
 
-        hm_loss = hm_loss * 0 if torch.sum(mask) <= 0 else hm_loss / torch.sum(mask) 
+        #hm_loss = hm_loss * 0 if torch.sum(mask) <= 0 else hm_loss / torch.sum(mask) 
 
         return hm_loss
