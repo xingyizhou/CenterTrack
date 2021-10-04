@@ -234,8 +234,6 @@ class opts(object):
     self.parser.add_argument('--rand_erase_seg_ratio', type=float, default=0.2)
     self.parser.add_argument('--seg_center', action='store_true',
                              help='use center of mass of segmentation mask instead of bbox center')
-    self.parser.add_argument('--copy_and_paste', type=float, default=0.0)
-    self.parser.add_argument('--pre_paste', type=float, default=1.0)
     self.parser.add_argument('--one_way_pre_data', action='store_true')
 
     # Tracking
@@ -256,10 +254,8 @@ class opts(object):
     self.parser.add_argument('--no_pre_img', action='store_true')
     self.parser.add_argument('--zero_tracking', action='store_true')
     self.parser.add_argument('--hungarian', action='store_true')
-    self.parser.add_argument('--max_age', type=str, default="2") # alive thershold when inference
-    self.parser.add_argument('--num_pre_data', type=int, default=3) # when training
-    self.parser.add_argument('--paste_up', action='store_true')
-    self.parser.add_argument('--num_pre_imgs_input', type=int, default=1) 
+    self.parser.add_argument('--max_age', type=str, default="2") # tracker alive thershold when inference
+    self.parser.add_argument('--num_pre_data', type=int, default=1) # when training 
     self.parser.add_argument('--att_hm_disturb', type=float, default=0)
     self.parser.add_argument('--att_lost_disturb', type=float, default=0)
     self.parser.add_argument('--att_fp_disturb', type=float, default=0)

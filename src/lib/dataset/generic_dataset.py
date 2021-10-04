@@ -80,8 +80,6 @@ class GenericDataset(data.Dataset):
           self.video_to_images[image['video_id']].append(image)
       
       self.img_dir = img_dir
-      if opt.copy_and_paste:
-        self.PedsAnnIds = self.coco.getAnnIds(catIds=[2]) # CatId = 2 for Pedestrain
 
   def __getitem__(self, index):
     opt = self.opt
@@ -91,28 +89,15 @@ class GenericDataset(data.Dataset):
     c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)
     s = max(img.shape[0], img.shape[1]) * 1.0 if not self.opt.not_max_crop \
       else np.array([img.shape[1], img.shape[0]], np.float32)
-    aug_s, rot, flipped, copy_and_pasted = 1, 0, 0, 0
+    aug_s, rot, flipped = 1, 0, 0
     kmf_cts = None
     if self.split == 'train':
       c, aug_s, rot = self._get_aug_param(c, s, width, height)
       s = s * aug_s
-      if np.random.random() < opt.copy_and_paste:
-        copy_and_pasted = 1
-        copied_ann, copied_img = self._rand_pick_peds_ann()
-        anchor_ann = np.random.choice(anns, size=int(len(anns) > 0))
-        if len(anchor_ann) > 0 and  not int(self.cat_ids[anchor_ann[0]['category_id']]) == 0:
-          anchor_ann = anchor_ann[0]
-          anns, img, copy_and_pasted = self._copy_and_paste(anchor_ann, anns, img, copied_ann, copied_img, height, width)
-        else:
-          copy_and_pasted = 0
       if np.random.random() < opt.flip:
         flipped = 1
         img = img[:, ::-1, :]
         anns = self._flip_anns(anns, height, width)
-        if copy_and_pasted:
-          copied_img = copied_img[:, ::-1, :]
-          copied_ann = self._flip_anns([copied_ann], copied_img.shape[0], copied_img.shape[1])[0] 
-          anchor_ann = self._flip_anns([anchor_ann], height, width)[0]
 
 
     trans_input = get_affine_transform(
@@ -128,7 +113,7 @@ class GenericDataset(data.Dataset):
       num_pre_data = opt.num_pre_data 
       pre_images, pre_annss, frame_dists = self._load_pre_data(
         img_info['video_id'], img_info['frame_id'], 
-        img_info['sensor_id'] if 'sensor_id' in img_info else 1, max(num_pre_data, opt.num_pre_imgs_input))
+        img_info['sensor_id'] if 'sensor_id' in img_info else 1, num_pre_data)
       if flipped:
         pre_images = [pre_image[:, ::-1, :].copy() for pre_image in pre_images]
         pre_annss = [self._flip_anns(pre_anns, height, width) for pre_anns in pre_annss]
@@ -147,18 +132,11 @@ class GenericDataset(data.Dataset):
           c_pre, s_pre, rot, [opt.input_w, opt.input_h])
         trans_output_pre = get_affine_transform(
           c_pre, s_pre, rot, [opt.output_w, opt.output_h])
-      if copy_and_pasted:
-        if np.random.random() < opt.pre_paste:
-          p_anns, p_img, _ = self._copy_and_paste(anchor_ann, pre_annss[-1], pre_images[-1], copied_ann, copied_img, height, width)
-          pre_annss[-1], pre_images[-1] = p_anns, p_img
-        if opt.num_pre_imgs_input >= 2 and np.random.random() < opt.pre_paste:
-          p_anns, p_img, _ = self._copy_and_paste(anchor_ann, pre_annss[-2], pre_images[-2], copied_ann, copied_img, height, width)
-          pre_annss[-2], pre_images[-2] = p_anns, p_img
 
-      pre_imgs = [self._get_input(pre_image, trans_input_pre) for pre_image in pre_images]
+      pre_imgs = [self._get_input(pre_images, trans_input_pre) for pre_image in pre_images]
       pre_img, pre_hm, pre_cts, track_ids = self._get_pre_dets(
-        pre_imgs, pre_annss, trans_input_pre, trans_output_pre, ret)
-      ret['pre_img'] = np.array(pre_imgs[-opt.num_pre_imgs_input:])
+        pre_annss[-1], trans_input_pre, trans_output_pre, ret)
+      ret['pre_img'] = np.array(pre_imgs[-1])
       if opt.pre_hm:
         ret['pre_hm'] = pre_hm
     
@@ -296,7 +274,7 @@ class GenericDataset(data.Dataset):
     return imgs, annss, frame_dists
 
 
-  def _get_pre_dets(self, pre_imgs, annss, trans_input, trans_output, ret):
+  def _get_pre_dets(self, anns, trans_input, trans_output, ret):
     k = 0
     hm_h, hm_w = self.opt.input_h, self.opt.input_w
     down_ratio = self.opt.down_ratio
@@ -304,85 +282,64 @@ class GenericDataset(data.Dataset):
     reutrn_hm = self.opt.pre_hm
     pre_hm = np.zeros((1, hm_h, hm_w), dtype=np.float32) if reutrn_hm else None
     pre_cts, track_ids = [], []
-    pre_img = copy.deepcopy(pre_imgs[-1])
-    pre_imgs_rev = copy.deepcopy(pre_imgs)
-    pre_imgs_rev.reverse() # [n-1, n-2, ...]
-    annss_rev = copy.deepcopy(annss)
-    annss_rev.reverse() # [n-1, n-2, ...]
-    for idx, anns in enumerate(annss_rev):
-      #if idx > 0 and not self.opt.paste_up: # v0.3
-      #  break
-      ann_to_be_paste = []
-      for i, ann in enumerate(anns):
-        cls_id = int(self.cat_ids[ann['category_id']])
-        if cls_id > self.opt.num_classes or cls_id <= -99 or \
-          ('iscrowd' in ann and ann['iscrowd'] > 0) or cls_id == 0: # cls_id add by vtsai01
-          continue
-        if 'bbox' not in anns[i].keys():
-          ann['bbox'] = mask_utils.toBbox(ann['segmentation'])
-        bbox = self._coco_box_to_bbox(ann['bbox'])
-        bbox[:2] = affine_transform(bbox[:2], trans)
-        bbox[2:] = affine_transform(bbox[2:], trans)
-        bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, hm_w - 1)
-        bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, hm_h - 1)
-        h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
-        max_rad = 1
+  
+    for i, ann in enumerate(anns):
+      cls_id = int(self.cat_ids[ann['category_id']])
+      if cls_id > self.opt.num_classes or cls_id <= -99 or \
+        ('iscrowd' in ann and ann['iscrowd'] > 0) or cls_id == 0: # cls_id add by vtsai01
+        continue
+      if 'bbox' not in anns[i].keys():
+        ann['bbox'] = mask_utils.toBbox(ann['segmentation'])
+      bbox = self._coco_box_to_bbox(ann['bbox'])
+      bbox[:2] = affine_transform(bbox[:2], trans)
+      bbox[2:] = affine_transform(bbox[2:], trans)
+      bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, hm_w - 1)
+      bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, hm_h - 1)
+      h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
+      max_rad = 1
 
+      track_id = ann['track_id'] if 'track_id' in ann else -1
+  
+      if (h > 0 and w > 0):
+        if 'seg' in self.opt.task  and self.opt.seg_center:
+          seg_mask = self.get_masks_as_input(ann, trans)
+          if np.sum(seg_mask) <= 0:
+            continue
+          ct = np.array([np.mean(np.where(seg_mask>=0.5)[1]), np.mean(np.where(seg_mask>=0.5)[0])], dtype=np.float32)
+        else:
+          ct = np.array(
+            [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
 
-        track_id = ann['track_id'] if 'track_id' in ann else -1
-        non_dup = True if track_id not in track_ids else False
+        radius = gaussian_radius((math.ceil(h), math.ceil(w)))
+        radius = max(0, int(radius)) 
+        max_rad = max(max_rad, radius)
+        
+        ct0 = ct.copy()
+        conf = 1
 
-        if idx == 0 and np.random.random() < self.opt.rand_erase_seg_ratio and self.opt.paste_up and self.split == 'train':
-          masks_to_be_erase = self.merge_masks_as_input([ann], trans)
-          pre_img = erase_seg_mask_from_image(pre_img, masks_to_be_erase)
-          continue
-          
+        ct[0] = ct[0] + np.random.randn() * self.opt.hm_disturb * w
+        ct[1] = ct[1] + np.random.randn() * self.opt.hm_disturb * h
+        conf = 1 if np.random.random() > self.opt.lost_disturb else 0
+        
+        ct_int = ct.astype(np.int32)
+        if conf == 0:
+          pre_cts.append(ct / down_ratio)
+        else:
+          pre_cts.append(ct0 / down_ratio)
 
-        if (h > 0 and w > 0) and non_dup:
-          if 'seg' in self.opt.task  and self.opt.seg_center:
-            seg_mask = self.get_masks_as_input(ann, trans)
-            if np.sum(seg_mask) <= 0:
-              continue
-            ct = np.array([np.mean(np.where(seg_mask>=0.5)[1]), np.mean(np.where(seg_mask>=0.5)[0])], dtype=np.float32)
-          else:
-            ct = np.array(
-              [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
+        track_ids.append(ann['track_id'] if 'track_id' in ann else -1)
+        if reutrn_hm:
+          draw_umich_gaussian(pre_hm[0], ct_int, radius, k=conf)
 
-          if idx > 0 and self.opt.paste_up: 
-            ann_to_be_paste.append(ann)
-          radius = gaussian_radius((math.ceil(h), math.ceil(w)))
-          radius = max(0, int(radius)) 
-          max_rad = max(max_rad, radius)
-          
-          ct0 = ct.copy()
-          conf = 1
+        if np.random.random() < self.opt.fp_disturb and reutrn_hm:
+          ct2 = ct0.copy()
+          # Hard code heatmap disturb ratio, haven't tried other numbers.
+          ct2[0] = ct2[0] + np.random.randn() * 0.05 * w
+          ct2[1] = ct2[1] + np.random.randn() * 0.05 * h 
+          ct2_int = ct2.astype(np.int32)
+          draw_umich_gaussian(pre_hm[0], ct2_int, radius, k=conf)
 
-          ct[0] = ct[0] + np.random.randn() * self.opt.hm_disturb * w
-          ct[1] = ct[1] + np.random.randn() * self.opt.hm_disturb * h
-          conf = 1 if np.random.random() > self.opt.lost_disturb else 0
-          
-          ct_int = ct.astype(np.int32)
-          if conf == 0:
-            pre_cts.append(ct / down_ratio)
-          else:
-            pre_cts.append(ct0 / down_ratio)
-
-
-          track_ids.append(ann['track_id'] if 'track_id' in ann else -1)
-          if reutrn_hm:
-            draw_umich_gaussian(pre_hm[0], ct_int, radius, k=conf)
-
-          if np.random.random() < self.opt.fp_disturb and reutrn_hm:
-            ct2 = ct0.copy()
-            # Hard code heatmap disturb ratio, haven't tried other numbers.
-            ct2[0] = ct2[0] + np.random.randn() * 0.05 * w
-            ct2[1] = ct2[1] + np.random.randn() * 0.05 * h 
-            ct2_int = ct2.astype(np.int32)
-            draw_umich_gaussian(pre_hm[0], ct2_int, radius, k=conf)
-      if len(ann_to_be_paste) > 0: 
-        masks_to_be_paste = self.merge_masks_as_input(ann_to_be_paste, trans)
-        pre_img = copy_paste_with_seg_mask(pre_img, pre_imgs_rev[idx], masks_to_be_paste, blend=False)
-    return pre_img, pre_hm, pre_cts, track_ids
+    return pre_hm, pre_cts, track_ids
 
   def merge_masks_as_input(self, anns, trans_input):
       rles = [ann['segmentation'] for ann in anns  if not ann['category_id'] == 10]

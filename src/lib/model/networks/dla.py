@@ -255,12 +255,11 @@ class DLA(nn.Module):
         self.level5 = Tree(levels[5], block, channels[4], channels[5], 2,
                            level_root=True, root_residual=residual_root)
         if opt.pre_img:
-            for i in range(opt.num_pre_imgs_input):
-                setattr(self, f"pre_img_layer_{i}", nn.Sequential(
-                    nn.Conv2d(3, channels[0], kernel_size=7, stride=1,
-                            padding=3, bias=False),
-                    nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
-                    nn.ReLU(inplace=True)))
+            self.pre_img_layer = nn.Sequential(
+            nn.Conv2d(3, channels[0], kernel_size=7, stride=1,
+                      padding=3, bias=False),
+            nn.BatchNorm2d(channels[0], momentum=BN_MOMENTUM),
+            nn.ReLU(inplace=True))
 
         if opt.pre_hm:
             self.pre_hm_layer = nn.Sequential(
@@ -306,10 +305,7 @@ class DLA(nn.Module):
         x = self.base_layer(x)
         
         if pre_img is not None: # (b, n, c, h, w)
-            for i in range(pre_img.size()[1]):
-                layer = getattr(self, f"pre_img_layer_{i}")
-                p_img = pre_img[:, i, :]
-                x = x + layer(p_img)
+            x = x + self.pre_img_layer(pre_img)
         if pre_hm is not None:
             x = x + self.pre_hm_layer(pre_hm)
 

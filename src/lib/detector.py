@@ -105,10 +105,7 @@ class Detector(object):
       if self.opt.tracking:
         # initialize the first frame
         if self.pre_images is None:
-          p_images = copy.deepcopy(images)
-          p_images = p_images.unsqueeze(1)
-          p_images = p_images.expand(-1, self.opt.num_pre_imgs_input, -1, -1, -1)
-          self.pre_images = p_images
+          self.pre_images = images
           self.tracker.init_track(
             meta['pre_dets'] if 'pre_dets' in meta else [])
         if self.opt.pre_hm or self.opt.sch_track:
@@ -116,19 +113,11 @@ class Detector(object):
           # pre_inds is not used in the current version.
           # We used pre_inds for learning an offset from previous image to
           # the current image.
-          with_kmf = (self.opt.kmf_att or self.opt.kmf_ind)
-          pre_images, pre_hms, pre_inds, kmf_hms, track_ids, kmf_inds = self._get_additional_inputs(
-            self.tracker.tracks, meta, self.pre_images[:, 0, :], self.age_images, 
-            with_hm=not self.opt.zero_pre_hm, with_kmf=with_kmf)
+          pre_hms, pre_inds, kmf_hms, track_ids, kmf_inds = self._get_additional_inputs(
+            self.tracker.tracks, meta, self.age_images, 
+            with_hm=not self.opt.zero_pre_hm, with_kmf=(self.opt.kmf_att or self.opt.kmf_ind))
           
           pid2track = {int(pre_ind.cpu().detach().numpy()): track_id for pre_ind, track_id in zip(pre_inds[0], track_ids[0])}
-          if self.opt.num_pre_imgs_input > 1:
-            #self.pre_images[:, 0, :] = pre_images # could be failed
-            mask = torch.zeros_like(self.pre_images, device=self.pre_images.device, dtype=torch.bool)
-            mask[:, 0, :] = True
-            self.pre_images = self.pre_images.masked_scatter(mask.byte(), pre_images)
-          else:
-            self.pre_images = pre_images.unsqueeze(1).expand(-1, self.opt.num_pre_imgs_input, -1, -1, -1)
       
       pre_process_time = time.time()
       pre_time += pre_process_time - scale_start_time
@@ -171,13 +160,7 @@ class Detector(object):
       self.age_images.append(images.squeeze(0))
       if len(self.age_images) > max(self.opt.max_age):
         self.age_images.pop(0)
-      n_img = self.opt.num_pre_imgs_input
-      for idx in range(n_img):
-        if n_img-idx > len(self.age_images):
-          continue
-        mask = torch.zeros_like(self.pre_images, device=self.pre_images.device, dtype=torch.bool)
-        mask[0, idx, :] = True
-        self.pre_images = self.pre_images.masked_scatter(mask.byte(), self.age_images[-n_img+idx])
+      self.pre_images = images
 
     tracking_time = time.time()
     track_time += tracking_time - end_time
@@ -285,7 +268,7 @@ class Detector(object):
     return bbox
 
 
-  def _get_additional_inputs(self, tracks, meta, pre_images, age_images, with_hm=True, with_kmf=False):
+  def _get_additional_inputs(self, tracks, meta, age_images, with_hm=True, with_kmf=False):
     '''
     Render input heatmap from previous trackings.
     '''
@@ -350,12 +333,6 @@ class Detector(object):
             kmf_inds.append(p_ct_out[1] * out_width + p_ct_out[0])
           else: # unconfirm kmf tracker
             kmf_inds.append(ct_out[1] * out_width + ct_out[0])
-        
-      if track['age'] > 1 and self.opt.paste_up:
-        track['segmentation'] = track['seg']
-        masks_to_be_paste = self.merge_masks_as_input([track], trans_input)
-        pre_images = copy_paste_with_seg_mask(pre_images.squeeze(0), age_images[-track['age']], masks_to_be_paste, blend=False)
-        pre_images = pre_images.unsqueeze(0)
 
     if with_hm:
       input_hm = input_hm[np.newaxis]
@@ -379,7 +356,7 @@ class Detector(object):
     kmf_inds = np.array(kmf_inds, np.int64).reshape(1, -1)
     kmf_inds = torch.from_numpy(kmf_inds).to(self.opt.device) if with_kmf else None
     track_ids = np.array(track_ids, np.int64).reshape(1, -1)
-    return pre_images, input_hm, output_inds, kmf_hm, track_ids, kmf_inds
+    return input_hm, output_inds, kmf_hm, track_ids, kmf_inds
 
   def merge_masks_as_input(self, anns, trans_input):
       rles = [ann['segmentation'] for ann in anns]
@@ -506,15 +483,10 @@ class Detector(object):
       debugger.add_blend_img(img, pred, 'pred_hmhp')
 
     if pre_images is not None:
-      pre_img = pre_images[0, 0].detach().cpu().numpy().transpose(1, 2, 0)
+      pre_img = pre_images[0].detach().cpu().numpy().transpose(1, 2, 0)
       pre_img = np.clip(((
         pre_img * self.std + self.mean) * 255.), 0, 255).astype(np.uint8)
       debugger.add_img(pre_img, 'pre_img')
-      if pre_images.size()[1] > 1:
-        pre_img = pre_images[0, 1].detach().cpu().numpy().transpose(1, 2, 0)
-        pre_img = np.clip(((
-          pre_img * self.std + self.mean) * 255.), 0, 255).astype(np.uint8)
-        debugger.add_img(pre_img, 'pre_img_1')
       if pre_hms is not None:
         pre_hm = debugger.gen_colormap(
           pre_hms[0].detach().cpu().numpy())

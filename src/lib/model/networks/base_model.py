@@ -94,14 +94,7 @@ class BaseModel(nn.Module):
       # print('\nforward')
       if (pre_img is not None) and (self.opt.sch_track):
         feats = self.img2feats(x)
-        pre_feats = self.img2feats(pre_img[:, 0, :])
-        if torch.isnan(feats[0]).any() or torch.isnan(pre_feats[0]).any():
-          print('\npre_feats', pre_feats[-1][-1][-1])
-          print('feats', feats[-1][-1][-1])
-          #print('pre_img', pre_img[:, 0, :])
-          print('pre_img', pre_img[:, 0, :].shape, torch.max(pre_img[:, 0, :]), torch.min(pre_img[:, 0, :]))
-          print('x', x.shape, torch.max(x), torch.min(x))
-
+        pre_feats = self.img2feats(pre_img)
       elif (pre_hm is not None) or (pre_img is not None) or (kmf_att is not None):
         kmf_att_in = None if self.opt.kmf_layer_out else kmf_att
         feats = self.imgpre2feats(x, pre_img, pre_hm, kmf_att_in)
@@ -112,7 +105,7 @@ class BaseModel(nn.Module):
         for s in range(self.num_stacks):
           z = []
           for head in sorted(self.heads):
-            if 'sch' in head:
+            if 'sch_weight' in head:
               assert pre_feats is not None
               z.append(self.__getattr__(head)(pre_feats[s]))
             else:
