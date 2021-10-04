@@ -134,7 +134,7 @@ class GenericDataset(data.Dataset):
           c_pre, s_pre, rot, [opt.output_w, opt.output_h])
 
       pre_imgs = [self._get_input(pre_image, trans_input_pre) for pre_image in pre_images]
-      pre_img, pre_hm, pre_cts, track_ids = self._get_pre_dets(
+      pre_hm, pre_cts, track_ids = self._get_pre_dets(
         pre_annss[-1], trans_input_pre, trans_output_pre, ret)
       ret['pre_img'] = np.array(pre_imgs[-1])
       if opt.pre_hm:
