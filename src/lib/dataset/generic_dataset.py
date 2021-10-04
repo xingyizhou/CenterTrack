@@ -167,7 +167,7 @@ class GenericDataset(data.Dataset):
     calib = self._get_calib(img_info, width, height)
 
     if opt.tracking and (opt.kmf_ind or opt.kmf_att) and opt.kmf_pit:
-      kmf_trackers = self._gen_kmf_att_hm(ret, pre_annss, trans_input)
+      kmf_trackers = self._gen_kmf_att_hm(ret, pre_annss, trans_output) # output format 
       kmf_cts = [kmf_trackers[tid]['ct'] for tid in track_ids]
     
     num_objs = min(len(anns), self.max_objs)

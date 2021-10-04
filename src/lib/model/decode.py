@@ -230,7 +230,7 @@ def generic_decode(output, K=100, opt=None):
 
     assert not opt.flip_test,"not support flip_test"
     torch.cuda.synchronize()
-    kmf_inds = output['kmf_inds'] if 'kmf_inds' in output else None
+    kmf_inds = output['kmf_inds'] if ('kmf_inds' in output and output['kmf_inds'] is not None) else None
     track_score, track_inds, tys0, txs0, hms = sch_decode(sch_feat, sch_weight, pre_inds, kmf_inds, track_K=track_K)
 
     txs = txs0.view(batch, num_pre * track_K, 1) + 0.5
@@ -292,6 +292,16 @@ def generic_decode(output, K=100, opt=None):
 
     ret['pre_cts'] = torch.cat(
       [pre_xs.unsqueeze(2), pre_ys.unsqueeze(2)], dim=2)
+
+
+  if 'kmf_inds' in output and output['kmf_inds'] is not None:
+    kmf_inds = output['kmf_inds'] # B x pre_K
+    kmf_K = kmf_inds.shape[1]
+    kmf_ys = (kmf_inds / width).int().float()
+    kmf_xs = (kmf_inds % width).int().float()
+
+    ret['kmf_cts'] = torch.cat(
+      [kmf_xs.unsqueeze(2), kmf_ys.unsqueeze(2)], dim=2)
   return ret
 
 

@@ -304,12 +304,11 @@ class Trainer(object):
           if batch['pre_mask'][0][idx] > 0:
             pred = debugger.gen_colormap(hm[None, :])
             debugger.add_blend_img(img, pred, img_id=f'track_hm_{idx}')
+            debugger.add_arrow(
+              dets['pre_cts'][0][idx]*opt.down_ratio, (0.5, 0.5), img_id=f'track_hm_{idx}')
             if opt.kmf_ind:
               debugger.add_arrow(
-              batch['kmf_cts'][0][idx], (0, 0), img_id=f'track_hm_{idx}') # not done
-            else:
-              debugger.add_arrow(
-              dets['pre_cts'][0][idx]*opt.down_ratio, (0, 0), img_id=f'track_hm_{idx}')
+              batch['kmf_cts'][0][idx]*opt.down_ratio, (0, 0), c=(255, 255, 0), img_id=f'track_hm_{idx}') 
       # Ground truth
       debugger.add_img(img, img_id='out_gt')
       for k in range(len(dets_gt['scores'][i])):

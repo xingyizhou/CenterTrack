@@ -116,9 +116,10 @@ class Detector(object):
           # pre_inds is not used in the current version.
           # We used pre_inds for learning an offset from previous image to
           # the current image.
-          pre_images, pre_hms, pre_inds, kmf_hms, track_ids = self._get_additional_inputs(
+          with_kmf = (self.opt.kmf_att or self.opt.kmf_ind)
+          pre_images, pre_hms, pre_inds, kmf_hms, track_ids, kmf_inds = self._get_additional_inputs(
             self.tracker.tracks, meta, self.pre_images[:, 0, :], self.age_images, 
-            with_hm=not self.opt.zero_pre_hm, with_kmf=self.opt.kmf_att)
+            with_hm=not self.opt.zero_pre_hm, with_kmf=with_kmf)
           
           pid2track = {int(pre_ind.cpu().detach().numpy()): track_id for pre_ind, track_id in zip(pre_inds[0], track_ids[0])}
           if self.opt.num_pre_imgs_input > 1:
@@ -136,7 +137,7 @@ class Detector(object):
       # output: the output feature maps, only used for visualizing
       # dets: output tensors after extracting peaks
       output, dets, forward_time = self.process(
-        images, self.pre_images, pre_hms, pre_inds, kmf_hms, return_time=True)
+        images, self.pre_images, pre_hms, pre_inds, kmf_hms, kmf_inds,return_time=True)
       net_time += forward_time - pre_process_time
       decode_time = time.time()
       dec_time += decode_time - forward_time
@@ -284,7 +285,7 @@ class Detector(object):
     return bbox
 
 
-  def _get_additional_inputs(self, tracks, meta, pre_images, age_images, with_hm=True, with_kmf=True):
+  def _get_additional_inputs(self, tracks, meta, pre_images, age_images, with_hm=True, with_kmf=False):
     '''
     Render input heatmap from previous trackings.
     '''
@@ -296,6 +297,7 @@ class Detector(object):
 
     output_inds = []
     track_ids = []
+    kmf_inds = []
     for track in tracks:
       if track['score'] < self.opt.pre_thresh[track['class']-1]: #or det['active'] == 0:
         continue
@@ -313,34 +315,42 @@ class Detector(object):
           ct = np.array(
             [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
         ct_int = ct.astype(np.int32)
-        if with_hm:
-          draw_umich_gaussian(input_hm[0], ct_int, radius)
-        if with_kmf and track['age'] <= 1 and track['active'] >= self.opt.kmf_confirm_age:
-          p_bbox = track['kmf'].predict()[0]
-          p_bbox = self._trans_bbox(p_bbox, trans_input, inp_width, inp_height)
-          p_h, p_w = p_bbox[3] - p_bbox[1], p_bbox[2] - p_bbox[0]
-          init = (track['active'] == 1)
-          if self.opt.guss_rad:
-            min_overlap = 0.2 if init else 0.6
-            conf = self.opt.init_conf if init else 1
-            p_radius = gaussian_radius_center((math.ceil(p_h), math.ceil(p_w)), min_overlap=0.2)
-          else:
-            p_radius = gaussian_radius((math.ceil(p_h), math.ceil(p_w)))
-          p_radius = max(0, int(p_radius))
-          p_ct_int = np.array(
-            [(p_bbox[0] + p_bbox[2]) / 2, (p_bbox[1] + p_bbox[3]) / 2], dtype=np.float32).astype(np.int32)
-          if (p_h > 0) and (p_w > 0) and (p_ct_int[0] > 0) and (p_ct_int[1]> 0) and (p_ct_int[0] < inp_width) and (p_ct_int[1] < inp_height):
-            if self.opt.guss_oval:
-              p_radius = p_radius if (self.opt.guss_rad and init) or (self.opt.guss_rad and self.opt.guss_rad_always) else 0
-              draw_umich_gaussian_oval(kmf_hm[0], p_ct_int, radius_h=h//2+p_radius, radius_w=w//2+p_radius)
-            else:
-              draw_umich_gaussian(kmf_hm[0], p_ct_int, p_radius)
-
         ct_out = np.array(
           [(bbox_out[0] + bbox_out[2]) / 2, 
            (bbox_out[1] + bbox_out[3]) / 2], dtype=np.int32)
         output_inds.append(ct_out[1] * out_width + ct_out[0])
         track_ids.append(track['tracking_id'])
+        if with_hm:
+          draw_umich_gaussian(input_hm[0], ct_int, radius)
+        if with_kmf:
+          if track['active'] >= self.opt.kmf_confirm_age:
+            p_bbox_ = track['kmf'].predict()[0]
+            p_bbox = self._trans_bbox(p_bbox_, trans_input, inp_width, inp_height)
+            p_h, p_w = p_bbox[3] - p_bbox[1], p_bbox[2] - p_bbox[0]
+            init = (track['active'] == 1)
+            if self.opt.guss_rad:
+              min_overlap = 0.2 if init else 0.6
+              conf = self.opt.init_conf if init else 1
+              p_radius = gaussian_radius_center((math.ceil(p_h), math.ceil(p_w)), min_overlap=0.2)
+            else:
+              p_radius = gaussian_radius((math.ceil(p_h), math.ceil(p_w)))
+            p_radius = max(0, int(p_radius))
+            p_ct_int = np.array(
+              [(p_bbox[0] + p_bbox[2]) / 2, (p_bbox[1] + p_bbox[3]) / 2], dtype=np.float32).astype(np.int32)
+            if (p_h > 0) and (p_w > 0) and (p_ct_int[0] > 0) and (p_ct_int[1]> 0) and (p_ct_int[0] < inp_width) and (p_ct_int[1] < inp_height):
+              if self.opt.guss_oval:
+                p_radius = p_radius if (self.opt.guss_rad and init) or (self.opt.guss_rad and self.opt.guss_rad_always) else 0
+                draw_umich_gaussian_oval(kmf_hm[0], p_ct_int, radius_h=h//2+p_radius, radius_w=w//2+p_radius)
+              else:
+                draw_umich_gaussian(kmf_hm[0], p_ct_int, p_radius)
+            # kmf_ind: trans to output
+            p_bbox_out = self._trans_bbox(p_bbox_, trans_output, out_width, out_height)
+            p_ct_out = np.array([(p_bbox_out[0] + p_bbox_out[2]) / 2, 
+                                (p_bbox_out[1] + p_bbox_out[3]) / 2], dtype=np.int32)
+            kmf_inds.append(p_ct_out[1] * out_width + p_ct_out[0])
+          else: # unconfirm kmf tracker
+            kmf_inds.append(ct_out[1] * out_width + ct_out[0])
+        
       if track['age'] > 1 and self.opt.paste_up:
         track['segmentation'] = track['seg']
         masks_to_be_paste = self.merge_masks_as_input([track], trans_input)
@@ -352,7 +362,7 @@ class Detector(object):
       if self.opt.flip_test:
         input_hm = np.concatenate((input_hm, input_hm[:, :, :, ::-1]), axis=0)
       input_hm = torch.from_numpy(input_hm).to(self.opt.device)
-    if with_kmf:
+    if with_kmf and self.opt.kmf_att:
       if not self.opt.keep_att:
         kmf_hm = kmf_hm * 0.5 + 0.5
       kmf_hm = kmf_hm[np.newaxis]
@@ -362,10 +372,14 @@ class Detector(object):
     else:
       kmf_hm = None
     
+    if with_kmf:
+      assert (len(output_inds) == len(kmf_inds))
     output_inds = np.array(output_inds, np.int64).reshape(1, -1)
     output_inds = torch.from_numpy(output_inds).to(self.opt.device)
+    kmf_inds = np.array(kmf_inds, np.int64).reshape(1, -1)
+    kmf_inds = torch.from_numpy(kmf_inds).to(self.opt.device) if with_kmf else None
     track_ids = np.array(track_ids, np.int64).reshape(1, -1)
-    return pre_images, input_hm, output_inds, kmf_hm, track_ids
+    return pre_images, input_hm, output_inds, kmf_hm, track_ids, kmf_inds
 
   def merge_masks_as_input(self, anns, trans_input):
       rles = [ann['segmentation'] for ann in anns]
@@ -426,12 +440,12 @@ class Detector(object):
 
 
   def process(self, images, pre_images=None, pre_hms=None,
-    pre_inds=None, kmf_hms=None, return_time=False):
+    pre_inds=None, kmf_hms=None, kmf_inds=None, return_time=False):
     with torch.no_grad():
       torch.cuda.synchronize()
       output = self.model(images, pre_images, pre_hms, kmf_hms)[-1]
       output = self._sigmoid_output(output)
-      output.update({'pre_inds': pre_inds})
+      output.update({'pre_inds': pre_inds, 'kmf_inds': kmf_inds})
       if self.opt.flip_test:
         output = self._flip_output(output)
       torch.cuda.synchronize()
@@ -521,7 +535,10 @@ class Detector(object):
         pred = debugger.gen_colormap(hm[None, :])
         debugger.add_blend_img(img, pred, img_id=f'track_hm_{i}')
         debugger.add_arrow(
-            dets['pre_cts'][0][i]*4, (0, 0), img_id=f'track_hm_{i}')
+            dets['pre_cts'][0][i]*self.opt.down_ratio, (0, 0), img_id=f'track_hm_{i}')
+        if 'kmf_cts' in dets:
+          debugger.add_arrow(
+              dets['kmf_cts'][0][i]*self.opt.down_ratio, (0, 0), c=(255, 255, 0),img_id=f'track_hm_{i}')
 
 
   def show_results(self, debugger, image, results):
