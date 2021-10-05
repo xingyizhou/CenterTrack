@@ -101,7 +101,7 @@ class Detector(object):
       images = images.to(self.opt.device, non_blocking=self.opt.non_block_test)
 
       # initializing tracker
-      pre_hms, pre_inds, kmf_hms = None, None, None
+      pre_hms, pre_inds, kmf_hms, sch_weights = None, None, None, None
       if self.opt.tracking:
         # initialize the first frame
         if self.pre_images is None:
@@ -113,9 +113,9 @@ class Detector(object):
           # pre_inds is not used in the current version.
           # We used pre_inds for learning an offset from previous image to
           # the current image.
-          pre_hms, pre_inds, kmf_hms, track_ids, kmf_inds = self._get_additional_inputs(
+          pre_hms, pre_inds, kmf_hms, track_ids, kmf_inds, sch_weights = self._get_additional_inputs(
             self.tracker.tracks, meta, self.age_images, 
-            with_hm=not self.opt.zero_pre_hm, with_kmf=(self.opt.kmf_att or self.opt.kmf_ind))
+            with_hm=not self.opt.zero_pre_hm, with_kmf=(self.opt.kmf_att or self.opt.kmf_ind), with_sch=self.opt.sch_eval)
           
           pid2track = {int(pre_ind.cpu().detach().numpy()): track_id for pre_ind, track_id in zip(pre_inds[0], track_ids[0])}
       
@@ -126,7 +126,7 @@ class Detector(object):
       # output: the output feature maps, only used for visualizing
       # dets: output tensors after extracting peaks
       output, dets, forward_time = self.process(
-        images, self.pre_images, pre_hms, pre_inds, kmf_hms, kmf_inds,return_time=True)
+        images, self.pre_images, pre_hms, pre_inds, kmf_hms, kmf_inds, sch_weights, return_time=True)
       net_time += forward_time - pre_process_time
       decode_time = time.time()
       dec_time += decode_time - forward_time
@@ -268,7 +268,7 @@ class Detector(object):
     return bbox
 
 
-  def _get_additional_inputs(self, tracks, meta, age_images, with_hm=True, with_kmf=False):
+  def _get_additional_inputs(self, tracks, meta, age_images, with_hm=True, with_kmf=False, with_sch=False):
     '''
     Render input heatmap from previous trackings.
     '''
@@ -281,6 +281,7 @@ class Detector(object):
     output_inds = []
     track_ids = []
     kmf_inds = []
+    sch_weights = []
     for track in tracks:
       if track['score'] < self.opt.pre_thresh[track['class']-1]: #or det['active'] == 0:
         continue
@@ -303,6 +304,8 @@ class Detector(object):
            (bbox_out[1] + bbox_out[3]) / 2], dtype=np.int32)
         output_inds.append(ct_out[1] * out_width + ct_out[0])
         track_ids.append(track['tracking_id'])
+        if with_sch:
+          sch_weights.append(track['sch_weight'])
         if with_hm:
           draw_umich_gaussian(input_hm[0], ct_int, radius)
         if with_kmf:
@@ -351,12 +354,15 @@ class Detector(object):
     
     if with_kmf:
       assert (len(output_inds) == len(kmf_inds))
+    num_pre = len(output_inds)
     output_inds = np.array(output_inds, np.int64).reshape(1, -1)
     output_inds = torch.from_numpy(output_inds).to(self.opt.device)
     kmf_inds = np.array(kmf_inds, np.int64).reshape(1, -1)
     kmf_inds = torch.from_numpy(kmf_inds).to(self.opt.device) if with_kmf else None
     track_ids = np.array(track_ids, np.int64).reshape(1, -1)
-    return input_hm, output_inds, kmf_hm, track_ids, kmf_inds
+    sch_weights = np.array(sch_weights)[None, :]
+    sch_weights = torch.from_numpy(sch_weights).to(self.opt.device)
+    return input_hm, output_inds, kmf_hm, track_ids, kmf_inds, sch_weights
 
   def merge_masks_as_input(self, anns, trans_input):
       rles = [ann['segmentation'] for ann in anns]
@@ -417,12 +423,12 @@ class Detector(object):
 
 
   def process(self, images, pre_images=None, pre_hms=None,
-    pre_inds=None, kmf_hms=None, kmf_inds=None, return_time=False):
+    pre_inds=None, kmf_hms=None, kmf_inds=None, pre_weights=None, return_time=False):
     with torch.no_grad():
       torch.cuda.synchronize()
       output = self.model(images, pre_images, pre_hms, kmf_hms)[-1]
       output = self._sigmoid_output(output)
-      output.update({'pre_inds': pre_inds, 'kmf_inds': kmf_inds})
+      output.update({'pre_inds': pre_inds, 'kmf_inds': kmf_inds, 'pre_weights': pre_weights})
       if self.opt.flip_test:
         output = self._flip_output(output)
       torch.cuda.synchronize()

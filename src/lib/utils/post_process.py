@@ -71,7 +71,9 @@ def generic_post_process(
         item['seg']['counts'] = item['seg']['counts'].decode("utf-8")
         if opt.wh_weight <= 0:
           item['bbox'] = _coco_box_to_bbox(mask_utils.toBbox(item['seg']))
-
+      
+      if 'sch_weights' in dets:
+        item['sch_weight'] = dets['sch_weights'][i][j]
 
       if 'hps' in dets:
         pts = transform_preds_with_trans(
@@ -101,6 +103,7 @@ def generic_post_process(
         item['loc'], item['rot_y'] = ddd2locrot(
           ct, item['alpha'], item['dim'], item['dep'], calibs[i])
       
+ 
       preds.append(item)
 
     if 'nuscenes_att' in dets:

@@ -92,10 +92,10 @@ class BaseModel(nn.Module):
 
     def forward(self, x, pre_img=None, pre_hm=None, kmf_att=None):
       # print('\nforward')
-      if (pre_img is not None) and (self.opt.sch_track):
+      if (pre_img is not None) and (self.opt.sch_track and not self.opt.sch_eval):
         feats = self.img2feats(x)
         pre_feats = self.img2feats(pre_img)
-      elif (pre_hm is not None) or (pre_img is not None) or (kmf_att is not None):
+      elif (not self.opt.sch_track) and ((pre_hm is not None) or (pre_img is not None) or (kmf_att is not None)):
         kmf_att_in = None if self.opt.kmf_layer_out else kmf_att
         feats = self.imgpre2feats(x, pre_img, pre_hm, kmf_att_in)
       else:
@@ -105,7 +105,7 @@ class BaseModel(nn.Module):
         for s in range(self.num_stacks):
           z = []
           for head in sorted(self.heads):
-            if 'sch_weight' in head:
+            if ('sch_weight' in head) and (not self.opt.sch_eval):
               assert pre_feats is not None
               z.append(self.__getattr__(head)(pre_feats[s]))
             else:
@@ -115,7 +115,7 @@ class BaseModel(nn.Module):
         for s in range(self.num_stacks):
           z = {}
           for head in self.heads:
-              if 'sch_weight' in head:
+              if ('sch_weight' in head) and (not self.opt.sch_eval):
                 assert pre_feats is not None
                 z[head] = self.__getattr__(head)(pre_feats[s])
               else:
