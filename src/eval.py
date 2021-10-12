@@ -131,6 +131,7 @@ def save_and_exit(opt, out=None, results=None, out_name='default', start_epoch='
   if (results is not None):
     save_path =  os.path.join(save_dir, '{}.json'.format(out_name))
     print('saving results to', save_path)
+    results.pop('sch_weight', None)
     json.dump(_to_list(copy.deepcopy(results)), 
               open(save_path, 'w'))
   if 'seg' in opt.task and 'tracking' in opt.task:
