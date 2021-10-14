@@ -625,7 +625,7 @@ class GenericDataset(data.Dataset):
           trackers[ann['track_id']]['kmf'] = KalmanBoxTracker(bbox)
           trackers[ann['track_id']]['age'] = 0
         else:
-          if np.random.random() > self.opt.att_track_lost_disturb:
+          if np.random.random() > self.opt.att_track_lost_disturb or idx == len(anns):
             trackers[ann['track_id']]['kmf'].update(bbox)
             trackers[ann['track_id']]['age'] += 1
     for k in trackers:

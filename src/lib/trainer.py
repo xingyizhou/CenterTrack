@@ -241,14 +241,7 @@ class Trainer(object):
       debugger.add_blend_img(img, gt, 'gt_hm')
 
       if 'pre_img' in batch:
-        pre = 0
-        if opt.num_pre_imgs_input > 1:
-          mt, pre = 0, 1
-          pre_img = batch['pre_img'][i, mt, :].detach().cpu().numpy().transpose(1, 2, 0)
-          pre_img = np.clip(((
-            pre_img * dataset.std + dataset.mean) * 255), 0, 255).astype(np.uint8)
-          debugger.add_img(pre_img, 'pre_img_mt')
-        pre_img = batch['pre_img'][i, pre, :].detach().cpu().numpy().transpose(1, 2, 0)
+        pre_img = batch['pre_img'][i].detach().cpu().numpy().transpose(1, 2, 0)
         pre_img = np.clip(((
           pre_img * dataset.std + dataset.mean) * 255), 0, 255).astype(np.uint8)
         debugger.add_img(pre_img, 'pre_img_pred')
