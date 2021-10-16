@@ -631,14 +631,16 @@ class GenericDataset(data.Dataset):
             trackers[ann['track_id']]['kmf'].predict()
             trackers[ann['track_id']]['kmf'].update(bbox)
             trackers[ann['track_id']]['age'] += 1
-
+    to_pop = []
     for k in trackers:
       bbox = trackers[k]['kmf'].predict()[0]
       pred_ct = self._add_kmf_att(ret=ret, bbox=bbox, trans_input=trans_input, init=(trackers[k]['age'] <= 0), draw=(self.opt.kmf_att))
       if pred_ct is None:
-        trackers.pop(k, None)
+        to_pop.append(k)
       else:
         trackers[k]['ct'] = pred_ct
+    for k in to_pop:
+      trackers.pop(k, None)
     return trackers
 
   def _add_kmf_att(self, ret, trans_input, ann=None, bbox=None, init=False, conf=1, draw=True):
