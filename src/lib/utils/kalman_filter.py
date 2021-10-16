@@ -71,6 +71,7 @@ class KalmanBoxTracker(object):
     self.history = []
     self.hits += 1
     self.hit_streak += 1
+    self.kf.predict()
     self.kf.update(convert_bbox_to_z(bbox))
 
   def predict(self):
@@ -91,4 +92,5 @@ class KalmanBoxTracker(object):
     """
     Returns the current bounding box estimate.
     """
-    return convert_x_to_bbox(self.kf.x)
+    #return convert_x_to_bbox(self.kf.x)
+    return self.kf.x

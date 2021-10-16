@@ -229,7 +229,7 @@ class GenericDataset(data.Dataset):
         rev = random.randrange(2)
         img_ids = [(img_info['id'], img_info['frame_id']) \
             for img_info in img_infos \
-            if (frame_id - img_info['frame_id']) * pow(-1, rev)< self.opt.max_frame_dist and \
+            if (frame_id - img_info['frame_id']) * pow(-1, rev) <= self.opt.max_frame_dist and \
             (frame_id - img_info['frame_id']) * pow(-1, rev) > 0 and \
             (not ('sensor_id' in img_info) or img_info['sensor_id'] == sensor_id)]
         img_ids.sort(key=lambda x: x[1])
@@ -245,7 +245,7 @@ class GenericDataset(data.Dataset):
       else:
         img_ids = [(img_info['id'], img_info['frame_id']) \
             for img_info in img_infos \
-            if abs(img_info['frame_id'] - frame_id) < self.opt.max_frame_dist and \
+            if abs(img_info['frame_id'] - frame_id) <= self.opt.max_frame_dist and \
             (not ('sensor_id' in img_info) or img_info['sensor_id'] == sensor_id)]
         pre_ids = np.random.choice(len(img_ids), num_data, replace=False)
     else:
@@ -262,7 +262,6 @@ class GenericDataset(data.Dataset):
       if len(img_ids) < num_data:
         img_ids = img_ids * num_data
       pre_ids = np.arange(len(img_ids))
-
     imgs, annss, frame_dists = [], [], []
     for pre_id in pre_ids:
       img_id, pre_frame_id = img_ids[pre_id]
@@ -271,6 +270,7 @@ class GenericDataset(data.Dataset):
       imgs.append(img)
       annss.append(anns)
       frame_dists.append(frame_dist)
+      
     return imgs, annss, frame_dists
 
 
@@ -605,6 +605,7 @@ class GenericDataset(data.Dataset):
     trackers = {}
     trans = trans_input
     hm_h, hm_w = self.opt.input_h, self.opt.input_w
+    iid = None
     for idx, anns in enumerate(pre_anns): #[..., n-2, n-1] 
       for i, ann in enumerate(anns):
         cls_id = int(self.cat_ids[ann['category_id']])
@@ -620,14 +621,17 @@ class GenericDataset(data.Dataset):
         h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
         if h <= 0 or w <= 0:
           continue
+        
         if ann['track_id'] not in trackers:
           trackers[ann['track_id']] = {}
           trackers[ann['track_id']]['kmf'] = KalmanBoxTracker(bbox)
           trackers[ann['track_id']]['age'] = 0
         else:
-          if np.random.random() > self.opt.att_track_lost_disturb or idx == len(anns):
+          if np.random.random() > self.opt.att_track_lost_disturb or idx == len(pre_anns) - 1:
+            trackers[ann['track_id']]['kmf'].predict()
             trackers[ann['track_id']]['kmf'].update(bbox)
             trackers[ann['track_id']]['age'] += 1
+
     for k in trackers:
       bbox = trackers[k]['kmf'].predict()[0]
       pred_ct = self._add_kmf_att(ret=ret, bbox=bbox, trans_input=trans_input, init=(trackers[k]['age'] <= 0), draw=(self.opt.kmf_att))
