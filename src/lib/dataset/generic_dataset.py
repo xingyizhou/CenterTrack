@@ -626,21 +626,21 @@ class GenericDataset(data.Dataset):
           trackers[ann['track_id']] = {}
           trackers[ann['track_id']]['kmf'] = KalmanBoxTracker(bbox)
           trackers[ann['track_id']]['age'] = 0
+          trackers[ann['track_id']]['cts_history'] = [np.array([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)]
         else:
           if np.random.random() > self.opt.att_track_lost_disturb or idx == len(pre_anns) - 1:
             trackers[ann['track_id']]['kmf'].predict()
             trackers[ann['track_id']]['kmf'].update(bbox)
             trackers[ann['track_id']]['age'] += 1
-    to_pop = []
+            trackers[ann['track_id']]['cts_history'].append(np.array([(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32))
     for k in trackers:
       bbox = trackers[k]['kmf'].predict()[0]
       pred_ct = self._add_kmf_att(ret=ret, bbox=bbox, trans_input=trans_input, init=(trackers[k]['age'] <= 0), draw=(self.opt.kmf_att))
       if pred_ct is None:
-        to_pop.append(k)
+        trackers[k]['ct'] = trackers[ann['track_id']]['cts_history'][-1]
       else:
         trackers[k]['ct'] = pred_ct
-    for k in to_pop:
-      trackers.pop(k, None)
+
     return trackers
 
   def _add_kmf_att(self, ret, trans_input, ann=None, bbox=None, init=False, conf=1, draw=True):
