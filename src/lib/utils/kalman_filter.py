@@ -74,7 +74,6 @@ class KalmanBoxTracker(object):
     self.history = []
     self.hits += 1
     self.hit_streak += 1
-    self.kf.predict()
     self.kf.update(convert_bbox_to_z(bbox))
 
   def predict(self):

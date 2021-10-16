@@ -637,7 +637,7 @@ class GenericDataset(data.Dataset):
       bbox = trackers[k]['kmf'].predict()[0]
       pred_ct = self._add_kmf_att(ret=ret, bbox=bbox, trans_input=trans_input, init=(trackers[k]['age'] <= 0), draw=(self.opt.kmf_att))
       if pred_ct is None:
-        trackers[k]['ct'] = trackers[ann['track_id']]['cts_history'][-1]
+        trackers[k]['ct'] = trackers[k]['cts_history'][-1]
       else:
         trackers[k]['ct'] = pred_ct
 
