@@ -49,7 +49,7 @@ class GenericLoss(torch.nn.Module):
 
   def forward(self, outputs, batch):
     opt = self.opt
-    losses = {head: 0 for head in opt.heads}
+    losses = {head: torch.tensor(0.).to(batch['hm'].device) for head in opt.heads}
     for s in range(opt.num_stacks):
       output = outputs[s]
       output = self._sigmoid_output(output)
