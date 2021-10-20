@@ -224,7 +224,7 @@ class Trainer(object):
       output.update({'pre_hm': batch['pre_hm']})
     if 'pre_ind' in batch:
       output.update({'pre_inds': batch['pre_ind']})
-    if 'kmf_ind' in batch:
+    if 'kmf_ind' in batch and self.opt.kmf_ind:
       output.update({'kmf_inds': batch['kmf_ind']})
     dets = generic_decode(output, K=opt.K, opt=opt)
     for k in dets:
