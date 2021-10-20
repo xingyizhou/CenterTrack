@@ -293,15 +293,21 @@ class Trainer(object):
               dets['tracking'][i][k] * opt.down_ratio, img_id='pre_img_pred')
       
       if 'track_hms' in dets:
-        for idx, hm in enumerate(dets['track_hms'][0]):
+        for idx, (gt_hm, hm) in enumerate(zip(batch['hm_track'][0], dets['track_hms'][0])):
           if batch['pre_mask'][0][idx] > 0:
-            pred = debugger.gen_colormap(hm[None, :])
-            debugger.add_blend_img(img, pred, img_id=f'track_hm_{idx}')
+            pred_map = debugger.gen_colormap(hm[None, :])
+            gt_map = debugger.gen_colormap(gt_hm.detach().cpu().numpy()[None, :])
+            debugger.add_blend_img(img, pred_map, img_id=f'track_hm_{idx}')
+            debugger.add_blend_img(img, gt_map, img_id=f'track_hm_{idx}_gt')
             debugger.add_arrow(
               dets['pre_cts'][0][idx]*opt.down_ratio, (0.5, 0.5), img_id=f'track_hm_{idx}')
+            debugger.add_arrow(
+              dets['pre_cts'][0][idx]*opt.down_ratio, (0.5, 0.5), img_id=f'track_hm_{idx}_gt')
             if opt.kmf_ind:
               debugger.add_arrow(
               batch['kmf_cts'][0][idx]*opt.down_ratio, (0, 0), c=(255, 255, 0), img_id=f'track_hm_{idx}') 
+              debugger.add_arrow(
+              batch['kmf_cts'][0][idx]*opt.down_ratio, (0, 0), c=(255, 255, 0), img_id=f'track_hm_{idx}_gt') 
       # Ground truth
       debugger.add_img(img, img_id='out_gt')
       for k in range(len(dets_gt['scores'][i])):
@@ -312,7 +318,7 @@ class Trainer(object):
 
           if 'ltrb_amodal' in opt.heads:
             debugger.add_coco_bbox(
-              dets_gt['bboxes_amodal'][i, k] * opt.down_ratio, 
+              dets_gt['ltrb_amodal'][i, k] * opt.down_ratio, 
               dets_gt['clses'][i, k],
               dets_gt['scores'][i, k], img_id='out_gt_amodal')
 
