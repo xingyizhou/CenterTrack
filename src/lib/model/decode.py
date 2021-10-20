@@ -176,6 +176,16 @@ def wh_decode(wh_feat, inds, xs, ys, K):
                       ys + wh[..., 1:2] / 2], dim=2)
   return bboxes
 
+def ltrb_amodal_decode(amodal_feat, inds, xs, ys, K):
+    batch = amodal_feat.size(0)
+    ltrb_amodal = _tranpose_and_gather_feat(amodal_feat, inds) # B x K x 4
+    ltrb_amodal = ltrb_amodal.view(batch, K, 4)
+    bboxes_amodal = torch.cat([xs.view(batch, K, 1) + ltrb_amodal[..., 0:1], 
+                          ys.view(batch, K, 1) + ltrb_amodal[..., 1:2],
+                          xs.view(batch, K, 1) + ltrb_amodal[..., 2:3], 
+                          ys.view(batch, K, 1) + ltrb_amodal[..., 3:4]], dim=2)
+    return bboxes_amodal
+
 def generic_decode(output, K=100, opt=None):
   if not ('hm' in output):
     return {}
@@ -239,8 +249,10 @@ def generic_decode(output, K=100, opt=None):
 
       txs = txs0.view(batch, num_pre * track_K, 1) + 0.5
       tys = tys0.view(batch, num_pre * track_K, 1) + 0.5
-      track_bboxes = wh_decode(output['wh'], track_inds.view(-1, num_pre * track_K), txs, tys, num_pre*track_K)
-      
+      if 'wh' in output:
+        track_bboxes = wh_decode(output['wh'], track_inds.view(-1, num_pre * track_K), txs, tys, num_pre*track_K)
+      elif 'ltrb_amodal' in output:
+        track_bboxes = ltrb_amodal_decode(output['ltrb_amodal'], track_inds.view(-1, num_pre * track_K), txs, tys, num_pre*track_K)
       ret['pre_inds'] = pre_inds # (batch, num_pre)
       ret['track_scores'] = track_score # (batch, num_pre, track_K)
       ret['track_bboxes'] = track_bboxes.view(batch, num_pre, track_K, 4)
