@@ -1,0 +1,17 @@
+version: "2.3"
+services:
+  dev:
+    image: centertrack_dev
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    tty: true
+    working_dir: /work
+    ipc: host
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    volumes: 
+      - /data/home/r08944022/.ssh:/root/.ssh
+      - /data/home/r08944022/CenterTrack:/CenterTrack
