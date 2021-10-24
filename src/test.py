@@ -107,6 +107,9 @@ def prefetch_test(opt):
         pre_processed_images['meta']['cur_dets'] = []
     
     ret = detector.run(pre_processed_images)
+    for r in ret['results']:
+      r.pop('sch_weigth', None)
+      r.pop('kmf', None)
     results[int(img_id.numpy().astype(np.int32)[0])] = ret['results']
     
     Bar.suffix = '[{0}/{1}]|Tot: {total:} |ETA: {eta:} '.format(
