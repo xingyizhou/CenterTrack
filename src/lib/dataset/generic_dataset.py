@@ -819,3 +819,17 @@ class GenericDataset(data.Dataset):
                 'hps': np.zeros((1, 17, 2), dtype=np.float32),}
     gt_det = {k: np.array(gt_det[k], dtype=np.float32) for k in gt_det}
     return gt_det
+
+  def fake_video_data(self):
+    self.coco.dataset['videos'] = []
+    for i in range(len(self.coco.dataset['images'])):
+      img_id = self.coco.dataset['images'][i]['id']
+      self.coco.dataset['images'][i]['video_id'] = img_id
+      self.coco.dataset['images'][i]['frame_id'] = 1
+      self.coco.dataset['videos'].append({'id': img_id})
+    
+    if not ('annotations' in self.coco.dataset):
+      return
+
+    for i in range(len(self.coco.dataset['annotations'])):
+      self.coco.dataset['annotations'][i]['track_id'] = i + 1
