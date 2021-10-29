@@ -17,7 +17,7 @@ def load_func(fpath):
     return records
 
 if __name__ == '__main__':
-  if not os.exists(OUT_PATH):
+  if not os.path.exists(OUT_PATH):
     os.mkdir(OUT_PATH)
   for split in SPLITS:
     data_path = DATA_PATH + split

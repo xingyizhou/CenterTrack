@@ -11,6 +11,7 @@ import os
 from ..generic_dataset import GenericDataset
 
 class CrowdHuman(GenericDataset):
+  num_categories = 1
   num_classes = 1
   num_joints = 17
   default_resolution = [512, 512]
