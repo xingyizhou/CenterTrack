@@ -106,6 +106,13 @@ class GenericLoss(torch.nn.Module):
     
     return losses['tot'], losses
 
+# def update_batch(batch):
+#   batch_size = ind.size(0)
+#   ind = batch['ind'] # B x N
+#   batch["im_inds"] = [
+#             ind.new_ones(ind.size(0), dtype=torch.long) * i for i in range(len(batch_size))
+#         ]
+
 
 class ModleWithLoss(torch.nn.Module):
   def __init__(self, model, loss):
@@ -117,6 +124,7 @@ class ModleWithLoss(torch.nn.Module):
     pre_img = batch['pre_img'] if 'pre_img' in batch else None
     pre_hm = batch['pre_hm'] if 'pre_hm' in batch else None
     kmf_att = batch['kmf_att'] if 'kmf_att' in batch else None
+    #_update_batch(batch)
     outputs = self.model(batch['image'], pre_img, pre_hm, kmf_att)
     loss, loss_stats = self.loss(outputs, batch)
     return outputs[-1], loss, loss_stats

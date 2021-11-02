@@ -192,59 +192,138 @@ def compute_rot_loss(output, target_bin, target_res, mask):
         loss_res += loss_sin2 + loss_cos2
     return loss_bin1 + loss_bin2 + loss_res
 
+def dice_coefficient(x, target):
+    eps = 1e-5
+    n_inst = x.size(0)
+    x = x.reshape(n_inst, -1)
+    target = target.reshape(n_inst, -1)
+    intersection = (x * target).sum(dim=1)
+    union = (x ** 2.0).sum(dim=1) + (target ** 2.0).sum(dim=1) + eps
+    loss = 1. - (2 * intersection / union)
+    return loss
+
+def parse_dynamic_params(params, channels, weight_nums, bias_nums):
+    assert params.dim() == 2
+    assert len(weight_nums) == len(bias_nums)
+    assert params.size(1) == sum(weight_nums) + sum(bias_nums)
+
+    num_insts = params.size(0)
+    num_layers = len(weight_nums)
+
+    params_splits = list(torch.split_with_sizes(
+        params, weight_nums + bias_nums, dim=1
+    ))
+
+    weight_splits = params_splits[:num_layers]
+    bias_splits = params_splits[num_layers:]
+
+    for l in range(num_layers):
+        if l < num_layers - 1:
+            # out_channels x in_channels x 1 x 1
+            weight_splits[l] = weight_splits[l].reshape(num_insts * channels, -1, 1, 1)
+            bias_splits[l] = bias_splits[l].reshape(num_insts * channels)
+        else:
+            # out_channels x in_channels x 1 x 1
+            weight_splits[l] = weight_splits[l].reshape(num_insts * 1, -1, 1, 1)
+            bias_splits[l] = bias_splits[l].reshape(num_insts)
+
+    return weight_splits, bias_splits
 
 class SegDiceLoss(nn.Module):
     def __init__(self,feat_channel):
         super(SegDiceLoss, self).__init__()
-        self.feat_channel=feat_channel
+        self.in_channels=feat_channel
+        self.channels=feat_channel
+        self.num_layers = 3
 
-    def dice_loss(self, input, target):
-        smooth = 1.
-        iflat = input.contiguous().view(-1)
-        tflat = target.contiguous().view(-1)
-        intersection = (iflat * tflat).sum()
-        return 1 - ((2. * intersection + smooth) /((iflat*iflat).sum() + (tflat*tflat).sum() + smooth))
+        weight_nums, bias_nums = [], []
+        for l in range(self.num_layers):
+            if l == 0:
+                weight_nums.append((self.in_channels + 2) * self.channels)
+                bias_nums.append(self.channels)
+            elif l == self.num_layers - 1:
+                weight_nums.append(self.channels * 1)
+                bias_nums.append(1)
+            else:
+                weight_nums.append(self.channels * self.channels)
+                bias_nums.append(self.channels)
+
+        self.weight_nums = weight_nums
+        self.bias_nums = bias_nums
+
+    def mask_heads_forward(self, features, weights, biases, num_insts):
+        '''
+        :param features
+        :param weights: [w0, w1, ...]
+        :param bias: [b0, b1, ...]
+        :return:
+        '''
+        assert features.dim() == 4
+        n_layers = len(weights)
+        x = features
+        for i, (w, b) in enumerate(zip(weights, biases)):
+            x = F.conv2d(
+                x, w, bias=b,
+                stride=1, padding=0,
+                groups=num_insts
+            )
+            if i < n_layers - 1:
+                x = F.relu(x)
+        return x
+
+    def mask_heads_forward_with_coords(self, mask_feats, conv_weight, ind, mask):
+        """
+        Arguments:
+          seg_feats: B x Channel x H x W
+          ind, mask: B x max_objs
+        """
+        n_inst = torch.sum(mask)
+        N, _, H, W = mask_feat.size() # batch x channels x H x W
+
+        conv_weights = _tranpose_and_gather_feat(conv_weight, ind) # batch x max_objs x dim
+
+        im_inds = torch.tensor([ind.new_ones(ind.size(1)) * b for b in range(N)]).to(ind.device)
+        im_inds = torch.masked_select(im_inds, mask)
+        mask_head_params = torch.masked_select(conv_weights, mask) # n_inst x channels
+        inst_ind = torch.masked_select(ind, mask) # n_inst 
+ 
+        x,y = inst_ind%W,inst_ind/W
+        x_range = torch.arange(W).float().to(device=mask_feat.device)
+        y_range = torch.arange(H).float().to(device=mask_feat.device)
+        y_grid, x_grid = torch.meshgrid([y_range, x_range])
+        coords_map = torch.stack((x_grid, y_grid), dim=1)
+        inst_locations = torch.stack((x, y))
+
+        relative_coords = inst_locations.reshape(-1, 1, 2) - coords_map.reshape(1, -1, 2)
+        relative_coords = relative_coords.permute(0, 2, 1).float()
+        #soi = self.sizes_of_interest.float()[instances.fpn_levels]
+        relative_coords = relative_coords# / soi.reshape(-1, 1, 1)
+        relative_coords = relative_coords.to(dtype=mask_feats.dtype)
+
+        mask_head_inputs = torch.cat([
+            relative_coords, mask_feats[im_inds].reshape(n_inst, self.in_channels, H * W)
+        ], dim=1)
+
+
+        mask_head_inputs = mask_head_inputs.reshape(1, -1, H, W)
+
+        weights, biases = parse_dynamic_params(
+            mask_head_params, self.channels,
+            self.weight_nums, self.bias_nums
+        )
+
+        mask_logits = self.mask_heads_forward(mask_head_inputs, weights, biases, n_inst)
+
+        mask_logits = mask_logits.reshape(-1, 1, H, W)
+
+        return mask_logits
 
     def forward(self, seg_feat, conv_weight, mask, ind, target):
-        hm_loss=0.
-        batch_size = seg_feat.size(0)
-        weight = _tranpose_and_gather_feat(conv_weight, ind)
-        #reg = _tranpose_and_gather_feat(reg, ind)
-        h,w = seg_feat.size(-2),seg_feat.size(-1)
-        x0,y0 = ind%w,ind/w
-        x = x0
-        y = y0
-        #x = x0.float() + reg[:, :, 0]
-        #y = y0.float() + reg[:, :, 1]
-        x_range = torch.arange(w).float().to(device=seg_feat.device)
-        y_range = torch.arange(h).float().to(device=seg_feat.device)
-        y_grid, x_grid = torch.meshgrid([y_range, x_range])
-        for i in range(batch_size):
-            num_obj = target[i].size(0)
-            conv1w,conv1b,conv2w,conv2b,conv3w,conv3b= \
-                torch.split(weight[i,:num_obj],[(self.feat_channel+2)*self.feat_channel,self.feat_channel,
-                                          self.feat_channel**2,self.feat_channel,
-                                          self.feat_channel,1],dim=-1)
-            y_rel_coord = (y_grid[None,None] - y[i,:num_obj].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).float())/128.
-            x_rel_coord = (x_grid[None,None] - x[i,:num_obj].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).float())/128.
-            feat = seg_feat[i][None].repeat([num_obj,1,1,1])
-            feat = torch.cat([feat,x_rel_coord, y_rel_coord],dim=1).view(1,-1,h,w)
-
-            conv1w=conv1w.contiguous().view(-1,self.feat_channel+2,1,1)
-            conv1b=conv1b.contiguous().flatten()
-            feat = F.conv2d(feat,conv1w,conv1b,groups=num_obj).relu()
-
-            conv2w=conv2w.contiguous().view(-1,self.feat_channel,1,1)
-            conv2b=conv2b.contiguous().flatten()
-            feat = F.conv2d(feat,conv2w,conv2b,groups=num_obj).relu()
-
-            conv3w=conv3w.contiguous().view(-1,self.feat_channel,1,1)
-            conv3b=conv3b.contiguous().flatten()
-            feat = F.conv2d(feat,conv3w,conv3b,groups=num_obj).sigmoid().squeeze()
-
-            true_mask = mask[i,:num_obj,None,None].float()
-
-            hm_loss+=self.dice_loss(feat*true_mask,target[i]*true_mask)
+        inst_target = torch.masked_select(target, mask)   
+        seg_logits = self.mask_heads_forward_with_coords(
+                    seg_feats, conv_weight, ind, mask)
+        seg_scores = mask_logits.sigmoid()
+        mask_losses = dice_coefficient(seg_scores, inst_target)     
 
         return hm_loss/batch_size
 
