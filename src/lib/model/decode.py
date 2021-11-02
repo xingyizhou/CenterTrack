@@ -120,7 +120,7 @@ def seg_decode(seg_feat, conv_weight, xs, ys, inds,  K):
 
     return seg_masks
 
-def sch_decode(sch_feat, weights, pre_ind, kmf_ind=None, track_K=1):
+def sch_decode(sch_feat, weights, pre_ind, kmf_ind=None, track_K=1, nms_kernel=5):
   """
   Arguments:
     sch_feats: B x N x H x W
@@ -160,7 +160,7 @@ def sch_decode(sch_feat, weights, pre_ind, kmf_ind=None, track_K=1):
     conv3b=conv3b.contiguous().flatten()
     hm[i] = F.conv2d(feat,conv3w,conv3b,groups=num_obj).sigmoid().squeeze()
     
-  hm = _nms(hm, kernel=5)
+  hm = _nms(hm, kernel=nms_kernel)
   scores, inds, ys0, xs0 = _topk_channel(hm, K=track_K)
   return scores, inds, ys0, xs0, hm
   #return scores.view(batch_size, num_obj, track_K), inds.view(batch_size, num_obj, track_K), ys0.view(batch_size, num_obj, track_K), xs0.view(batch_size, num_obj, track_K), hm
@@ -237,6 +237,7 @@ def generic_decode(output, K=100, opt=None):
 
     if 'pre_inds' in output and output['pre_inds'].size(1) > 0:
       track_K = opt.track_K 
+      nms_kernel = opt.nms_kernel
       sch_feat = output['sch']
       pre_inds = output['pre_inds']
       pre_weights = output['pre_weights'] if 'pre_weights' in output else _tranpose_and_gather_feat(sch_weight, pre_inds) # for training debug
@@ -245,7 +246,7 @@ def generic_decode(output, K=100, opt=None):
       assert not opt.flip_test,"not support flip_test"
       torch.cuda.synchronize()
       kmf_inds = output['kmf_inds'] if ('kmf_inds' in output and output['kmf_inds'] is not None) else None
-      track_score, track_inds, tys0, txs0, hms = sch_decode(sch_feat, pre_weights, pre_inds, kmf_inds, track_K=track_K)
+      track_score, track_inds, tys0, txs0, hms = sch_decode(sch_feat, pre_weights, pre_inds, kmf_inds, track_K=track_K, nms_kernel=nms_kernel)
 
       txs = txs0.view(batch, num_pre * track_K, 1) + 0.5
       tys = tys0.view(batch, num_pre * track_K, 1) + 0.5
