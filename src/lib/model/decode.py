@@ -248,8 +248,14 @@ def generic_decode(output, K=100, opt=None):
       kmf_inds = output['kmf_inds'] if ('kmf_inds' in output and output['kmf_inds'] is not None) else None
       track_score, track_inds, tys0, txs0, hms = sch_decode(sch_feat, pre_weights, pre_inds, kmf_inds, track_K=track_K, nms_kernel=nms_kernel)
 
-      txs = txs0.view(batch, num_pre * track_K, 1) + 0.5
-      tys = tys0.view(batch, num_pre * track_K, 1) + 0.5
+      if 'reg' in output:
+        reg = output['reg']
+        track_reg = _tranpose_and_gather_feat(reg, track_inds.view(-1, num_pre * track_K))
+        txs = txs0.view(batch, num_pre * track_K, 1) + track_reg[:, :, 0:1]
+        tys = tys0.view(batch, num_pre * track_K, 1) + track_reg[:, :, 1:2]
+      else:
+        txs = txs0.view(batch, num_pre * track_K, 1) + 0.5
+        tys = tys0.view(batch, num_pre * track_K, 1) + 0.5
       if 'wh' in output:
         track_bboxes = wh_decode(output['wh'], track_inds.view(-1, num_pre * track_K), txs, tys, num_pre*track_K)
       elif 'ltrb_amodal' in output:
