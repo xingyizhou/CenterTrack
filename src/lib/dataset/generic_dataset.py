@@ -727,7 +727,7 @@ class GenericDataset(data.Dataset):
     if 'tracking' in self.opt.heads:
       if ann['track_id'] in track_ids:
         pre_ct = pre_cts[track_ids.index(ann['track_id'])]
-        #ret['tracking_mask'][k] = 1
+        ret['tracking_mask'][k] = 1
         ret['tracking'][k] = pre_ct - ct_int
         gt_det['tracking'].append(ret['tracking'][k])
       else:
