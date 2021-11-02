@@ -278,21 +278,23 @@ class SegDiceLoss(nn.Module):
           ind, mask: B x max_objs
         """
         n_inst = torch.sum(mask)
-        N, _, H, W = mask_feat.size() # batch x channels x H x W
+        N, _, H, W = mask_feats.size() # batch x channels x H x W
+        max_objs = ind.size(1)
 
         conv_weights = _tranpose_and_gather_feat(conv_weight, ind) # batch x max_objs x dim
 
-        im_inds = torch.tensor([ind.new_ones(ind.size(1)) * b for b in range(N)]).to(ind.device)
-        im_inds = torch.masked_select(im_inds, mask)
-        mask_head_params = torch.masked_select(conv_weights, mask) # n_inst x channels
-        inst_ind = torch.masked_select(ind, mask) # n_inst 
+        #im_inds = torch.tensor([ind.new_ones(ind.size(1)) * b for b in range(N)]).to(ind.device)
+        im_inds = torch.arange(N).unsqueeze(1).expand(N, max_objs).to(ind.device)
+        im_inds = im_inds[mask]
+        mask_head_params = conv_weights[mask] # n_inst x channels
+        inst_ind = ind[mask] # n_inst 
  
         x,y = inst_ind%W,inst_ind/W
-        x_range = torch.arange(W).float().to(device=mask_feat.device)
-        y_range = torch.arange(H).float().to(device=mask_feat.device)
+        x_range = torch.arange(W).float().to(device=mask_feats.device)
+        y_range = torch.arange(H).float().to(device=mask_feats.device)
         y_grid, x_grid = torch.meshgrid([y_range, x_range])
-        coords_map = torch.stack((x_grid, y_grid), dim=1)
-        inst_locations = torch.stack((x, y))
+        coords_map = torch.stack((x_grid, y_grid), dim=1).float()
+        inst_locations = torch.stack((x, y)).float()
 
         relative_coords = inst_locations.reshape(-1, 1, 2) - coords_map.reshape(1, -1, 2)
         relative_coords = relative_coords.permute(0, 2, 1).float()
@@ -319,13 +321,17 @@ class SegDiceLoss(nn.Module):
         return mask_logits
 
     def forward(self, seg_feat, conv_weight, mask, ind, target):
-        inst_target = torch.masked_select(target, mask)   
+        if torch.sum(mask) == 0:
+          return torch.sum(mask)
+        mask = mask.byte() 
+        inst_target = target[mask]
         seg_logits = self.mask_heads_forward_with_coords(
-                    seg_feats, conv_weight, ind, mask)
-        seg_scores = mask_logits.sigmoid()
-        mask_losses = dice_coefficient(seg_scores, inst_target)     
+                    seg_feat, conv_weight, ind, mask)
+        seg_scores = seg_logits.sigmoid()
+        seg_losses = dice_coefficient(seg_scores, inst_target)     
+        loss_seg = seg_losses.mean()
 
-        return hm_loss/batch_size
+        return loss_seg
 
 class MTLoss(nn.Module):
     def __init__(self, heads):
