@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from .utils import _gather_feat, _tranpose_and_gather_feat
 from .utils import _nms, _topk, _topk_channel
-from .losses import dice_coefficient
+from .losses import dice_coefficient, FastFocalLoss
 import torch.nn.functional as F
 
 
@@ -81,45 +81,6 @@ def _update_kps_with_hm(
     return kps, kps_score
   else:
     return kps, kps
-
-
-def seg_decode(seg_feat, conv_weight, xs, ys, inds,  K):
-    ys = ys.squeeze(-1)
-    xs = xs.squeeze(-1)
-    batch_size = seg_feat.size(0)
-    feat_channel = seg_feat.size(1)
-    h, w = seg_feat.size(-2), seg_feat.size(-1)
-    seg_masks = torch.zeros((batch_size, K,h,w)).to(device=seg_feat.device)
-    x_range = torch.arange(w).float().to(device=seg_feat.device)
-    y_range = torch.arange(h).float().to(device=seg_feat.device)
-    y_grid, x_grid = torch.meshgrid([y_range, x_range])
-    weight = _tranpose_and_gather_feat(conv_weight, inds)
-    for i in range(batch_size):
-        conv1w, conv1b, conv2w, conv2b, conv3w, conv3b = \
-            torch.split(weight[i], [(feat_channel + 2) * feat_channel, feat_channel,
-                                              feat_channel ** 2, feat_channel,
-                                              feat_channel, 1], dim=-1)
-        y_rel_coord = (y_grid[None, None] - ys[i].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).float()) / 128.
-        x_rel_coord = (x_grid[None, None] - xs[i].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).float()) / 128.
-        feat = seg_feat[i][None].repeat([K, 1, 1, 1])
-
-        feat = torch.cat([feat, x_rel_coord, y_rel_coord], dim=1)
-        feat = feat.view(1, -1, h, w)
-
-        conv1w = conv1w.contiguous().view(-1, feat_channel + 2, 1, 1)
-        conv1b = conv1b.contiguous().flatten()
-        feat = F.conv2d(feat, conv1w, conv1b, groups=K).relu()
-
-        conv2w = conv2w.contiguous().view(-1, feat_channel, 1, 1)
-        conv2b = conv2b.contiguous().flatten()
-        feat = F.conv2d(feat, conv2w, conv2b, groups=K).relu()
-
-        conv3w = conv3w.contiguous().view(-1, feat_channel, 1, 1)
-        conv3b = conv3b.contiguous().flatten()
-        feat = F.conv2d(feat, conv3w, conv3b, groups=K).sigmoid().squeeze()
-        seg_masks[i] = feat
-
-    return seg_masks
 
 def parse_dynamic_params(params, channels, weight_nums, bias_nums):
     assert params.dim() == 2
@@ -260,50 +221,133 @@ class CondInst(nn.Module):
         else:
           return seg_scores.reshape(batch_size, k, H, W)
 
-def sch_decode(sch_feat, weights, pre_ind, kmf_ind=None, track_K=1, nms_kernel=5):
-  """
-  Arguments:
-    sch_feats: B x N x H x W
-    pre_ind: B x M
-  """
-  num_obj = pre_ind.size(1)
-  batch_size = sch_feat.size(0)
-  feat_channel = sch_feat.size(1)
-  h, w = sch_feat.size(-2), sch_feat.size(-1)
-  if kmf_ind is not None:
-    x, y = kmf_ind%w,kmf_ind/w
-  else:
-    x, y = pre_ind%w,pre_ind/w
-  x_range = torch.arange(w).float().to(device=sch_feat.device)
-  y_range = torch.arange(h).float().to(device=sch_feat.device)
-  hm = torch.zeros((batch_size, num_obj, h, w)).to(device=sch_feat.device)
-  y_grid, x_grid = torch.meshgrid([y_range, x_range])
-  for i in range(batch_size):
-    conv1w,conv1b,conv2w,conv2b,conv3w,conv3b= \
-        torch.split(weights[i],[(feat_channel+2)*feat_channel,feat_channel,
-                                  feat_channel**2,feat_channel,
-                                  feat_channel, 1],dim=-1)
-    y_rel_coord = (y_grid[None,None] - y[i].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).float())/128.
-    x_rel_coord = (x_grid[None,None] - x[i].unsqueeze(-1).unsqueeze(-1).unsqueeze(-1).float())/128.
-    feat = sch_feat[i][None].repeat([num_obj,1,1,1])
-    feat = torch.cat([feat,x_rel_coord, y_rel_coord],dim=1).view(1,-1,h,w)
 
-    conv1w=conv1w.contiguous().view(-1, feat_channel+2,1,1)
-    conv1b=conv1b.contiguous().flatten()
-    feat = F.conv2d(feat,conv1w,conv1b,groups=num_obj).relu()
+class SchTrack(nn.Module):
+    def __init__(self,feat_channel, opt):
+        super(SchTrack, self).__init__()
+        self.in_channels=feat_channel
+        self.channels=feat_channel
+        self.num_layers = 3
+        self.hm_crit = FastFocalLoss(opt)
 
-    conv2w=conv2w.contiguous().view(-1, feat_channel,1,1)
-    conv2b=conv2b.contiguous().flatten()
-    feat = F.conv2d(feat,conv2w,conv2b,groups=num_obj).relu()
+        weight_nums, bias_nums = [], []
+        for l in range(self.num_layers):
+            if l == 0:
+                weight_nums.append((self.in_channels + 2) * self.channels)
+                bias_nums.append(self.channels)
+            elif l == self.num_layers - 1:
+                weight_nums.append(self.channels * 1)
+                bias_nums.append(1)
+            else:
+                weight_nums.append(self.channels * self.channels)
+                bias_nums.append(self.channels)
 
-    conv3w=conv3w.contiguous().view(-1, feat_channel,1,1)
-    conv3b=conv3b.contiguous().flatten()
-    hm[i] = F.conv2d(feat,conv3w,conv3b,groups=num_obj).sigmoid().squeeze()
-    
-  hm = _nms(hm, kernel=nms_kernel)
-  scores, inds, ys0, xs0 = _topk_channel(hm, K=track_K)
-  return scores, inds, ys0, xs0, hm
-  #return scores.view(batch_size, num_obj, track_K), inds.view(batch_size, num_obj, track_K), ys0.view(batch_size, num_obj, track_K), xs0.view(batch_size, num_obj, track_K), hm
+        self.weight_nums = weight_nums
+        self.bias_nums = bias_nums
+
+        self.num_kernel = opt.nms_kernel
+        self.track_K = opt.track_K
+
+    def sch_heads_forward(self, features, weights, biases, num_insts):
+        '''
+        :param features
+        :param weights: [w0, w1, ...]
+        :param bias: [b0, b1, ...]
+        :return:
+        '''
+        assert features.dim() == 4
+        n_layers = len(weights)
+        x = features
+        for i, (w, b) in enumerate(zip(weights, biases)):
+            x = F.conv2d(
+                x, w, bias=b,
+                stride=1, padding=0,
+                groups=num_insts
+            )
+            if i < n_layers - 1:
+                x = F.relu(x)
+        return x
+
+    def sch_heads_forward_with_coords(self, mask_feats, conv_weight, pre_ind, kmf_ind=None, mask=None):
+        """
+        Arguments:
+          seg_feats: B x Channel x H x W
+          ind, mask: B x max_objs
+        """
+        n_inst = torch.sum(mask)
+        N, _, H, W = mask_feats.size() # batch x channels x H x W
+        max_objs = pre_ind.size(1)
+
+        conv_weights = _tranpose_and_gather_feat(conv_weight, pre_ind) # batch x max_objs x dim
+
+      
+        im_inds = torch.arange(N).unsqueeze(1).expand(N, max_objs).to(pre_ind.device)
+        im_inds = im_inds[mask]
+        mask_head_params = conv_weights[mask] # n_inst x channels
+        inst_ind = kmf_ind[mask] if kmf_ind is not None else pre_ind[mask] # n_inst 
+ 
+
+        x,y = inst_ind%W,inst_ind/W
+        x_range = torch.arange(W).float().to(device=mask_feats.device)
+        y_range = torch.arange(H).float().to(device=mask_feats.device)
+        y_grid, x_grid = torch.meshgrid([y_range, x_range])
+        coords_map = torch.stack((x_grid, y_grid), dim=1).float()
+        inst_locations = torch.stack((x, y)).float()
+
+        relative_coords = inst_locations.reshape(-1, 1, 2) - coords_map.reshape(1, -1, 2)
+        relative_coords = relative_coords.permute(0, 2, 1).float()
+        #soi = self.sizes_of_interest.float()[instances.fpn_levels]
+        relative_coords = relative_coords# / soi.reshape(-1, 1, 1)
+        relative_coords = relative_coords.to(dtype=mask_feats.dtype)
+
+        mask_head_inputs = torch.cat([
+            relative_coords, mask_feats[im_inds].reshape(n_inst, self.in_channels, H * W)
+        ], dim=1)
+
+
+        mask_head_inputs = mask_head_inputs.reshape(1, -1, H, W)
+
+        weights, biases = parse_dynamic_params(
+            mask_head_params, self.channels,
+            self.weight_nums, self.bias_nums
+        )
+
+        hm_logits = self.sch_heads_forward(mask_head_inputs, weights, biases, n_inst)
+
+        hm_logits = hm_logits.reshape(-1, 1, H, W)
+
+        return hm_logits
+
+    def forward(self, sch_feat, conv_weight, ind, pre_ind, kmf_ind=None, mask=None, target=None, is_train=True):
+        """
+        Arguments:
+          sch_feats, target: B x M x H x W
+          pre_ind, ind, mask: B x M
+        """
+        if mask is None:
+          mask = torch.ones_like(pre_ind)
+        if torch.sum(mask) == 0:
+          return torch.sum(mask)
+
+        batch_size, k = pre_ind.size()
+        _, _, H, W = sch_feat.size()
+
+        mask = mask.byte() 
+        hm_logits = self.sch_heads_forward_with_coords(
+                    sch_feat, conv_weight, pre_ind, kmf_ind, mask)
+        hm_scores = hm_logits.sigmoid()
+        if is_train:
+          inst_target = target[mask]
+          inst_ind = ind[mask].unsqueeze(1)
+          cat = torch.zeros_like(inst_ind)
+          inst_mask = torch.ones_like(inst_ind)
+          hm_losses = self.hm_crit(hm_scores, inst_target, inst_ind, inst_mask.float(), cat)     
+          return hm_losses
+        else:
+          hm = _nms(hm_score.view(batch_size, k, H, W), kernel=self.nms_kernel)
+          scores, inds, ys0, xs0 = _topk_channel(hm, K=self.track_K)
+          return scores, inds, ys0, xs0, hm
+          
 
 def wh_decode(wh_feat, inds, xs, ys, K):
   batch = wh_feat.size(0)
@@ -332,6 +376,8 @@ class GenericDecode():
     self.opt = opt
     if 'seg' in self.opt.heads:
       self.seg_decode = CondInst(self.opt.seg_feat_channel)
+    if 'sch' in self.opt.heads:
+      self.sch_decode = SchTrack(self.opt.sch_feat_channel, self.opt)
 
   def generic_decode(self, output):
     K = self.K
@@ -386,8 +432,6 @@ class GenericDecode():
       ret['sch_weights'] = sch_weights.view(batch, K, -1)
 
       if 'pre_inds' in output and output['pre_inds'].size(1) > 0:
-        track_K = opt.track_K 
-        nms_kernel = opt.nms_kernel
         sch_feat = output['sch']
         pre_inds = output['pre_inds']
         pre_weights = output['pre_weights'] if 'pre_weights' in output else _tranpose_and_gather_feat(sch_weight, pre_inds) # for training debug
@@ -396,7 +440,7 @@ class GenericDecode():
         assert not opt.flip_test,"not support flip_test"
         torch.cuda.synchronize()
         kmf_inds = output['kmf_inds'] if ('kmf_inds' in output and output['kmf_inds'] is not None) else None
-        track_score, track_inds, tys0, txs0, hms = sch_decode(sch_feat, pre_weights, pre_inds, kmf_inds, track_K=track_K, nms_kernel=nms_kernel)
+        track_score, track_inds, tys0, txs0, hms = self.sch_decode(sch_feat, pre_weights, pre_inds, kmf_inds)
 
         if 'reg' in output:
           reg = output['reg']
