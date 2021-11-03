@@ -11,8 +11,8 @@ from model.data_parallel import DataParallel
 from utils.utils import AverageMeter
 
 from model.losses import FastFocalLoss, RegWeightedL1Loss
-from model.losses import BinRotLoss, WeightedBCELoss, SegDiceLoss, MTLoss, SchLoss
-from model.decode import generic_decode
+from model.losses import BinRotLoss, WeightedBCELoss, MTLoss, SchLoss
+from model.decode import GenericDecode, CondInst
 from model.utils import _sigmoid, flip_tensor, flip_lr_off, flip_lr
 from utils.debugger import Debugger
 from utils.post_process import generic_post_process
@@ -31,7 +31,7 @@ class GenericLoss(torch.nn.Module):
     if 'nuscenes_att' in opt.heads:
       self.crit_nuscenes_att = WeightedBCELoss()
     if 'seg' in opt.heads:
-      self.crit_seg = SegDiceLoss(opt.seg_feat_channel)
+      self.crit_seg = CondInst(opt.seg_feat_channel)
     if 'sch' in opt.heads:
       self.crit_sch = SchLoss(opt.sch_feat_channel, opt=opt)
     #if opt.mtl:
@@ -59,7 +59,7 @@ class GenericLoss(torch.nn.Module):
           batch['mask'], batch['cat']) / opt.num_stacks
       if 'seg' in output:
         losses['seg'] += self.crit_seg(output['seg'],output['conv_weight'], 
-                                      batch['mask'], batch['ind'], batch['seg_mask']) / opt.num_stacks
+                                      batch['ind'], batch['mask'], batch['seg_mask']) / opt.num_stacks
       if 'sch' in output:
         if opt.kmf_ind:
           losses['sch'] += self.crit_sch(output['sch'], output['sch_weight'], 
@@ -138,6 +138,9 @@ class Trainer(object):
     self.model_with_loss = ModleWithLoss(model, self.loss)
     ts = datetime.datetime.now().strftime("%m%d-%H%M")
     self.writer = SummaryWriter(f'/home/master/08/vtsai01/CenMOTS/runs/{opt.task}-{opt.exp_id}-{ts}') if tb_writer else None
+
+    if opt.debug > 0:
+      self.decoder = GenericDecode(K=opt.K, opt=opt)
 
   def set_device(self, gpus, chunk_sizes, device):
     if len(gpus) > 1:
@@ -234,7 +237,7 @@ class Trainer(object):
       output.update({'pre_inds': batch['pre_ind']})
     if 'kmf_ind' in batch and self.opt.kmf_ind:
       output.update({'kmf_inds': batch['kmf_ind']})
-    dets = generic_decode(output, K=opt.K, opt=opt)
+    dets = self.decoder.generic_decode(output)
     for k in dets:
       dets[k] = dets[k].detach().cpu().numpy()
     dets_gt = batch['meta']['gt_det']

@@ -11,7 +11,7 @@ import torch
 import math
 
 from model.model import create_model, load_model
-from model.decode import generic_decode
+from model.decode import GenericDecode
 from model.utils import flip_tensor, flip_lr_off, flip_lr
 from utils.image import get_affine_transform, affine_transform
 from utils.image import draw_umich_gaussian, gaussian_radius, draw_umich_gaussian_oval, gaussian_radius_center
@@ -55,6 +55,8 @@ class Detector(object):
     self.age_images = []
     self.tracker = SchTracker(opt) if opt.sch_track else Tracker(opt)
     self.debugger = Debugger(opt=opt, dataset=self.trained_dataset)
+
+    self.decoder = GenericDecode(K=opt.K, opt=opt)
 
 
   def run(self, image_or_path_or_tensor, meta={}):
@@ -434,7 +436,7 @@ class Detector(object):
       torch.cuda.synchronize()
       forward_time = time.time()
       
-      dets = generic_decode(output, K=self.opt.K, opt=self.opt)
+      dets = self.decoder.generic_decode(output)
       torch.cuda.synchronize()
       for k in dets:
         dets[k] = dets[k].detach().cpu().numpy()

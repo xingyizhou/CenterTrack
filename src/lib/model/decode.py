@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 from .utils import _gather_feat, _tranpose_and_gather_feat
 from .utils import _nms, _topk, _topk_channel
+from .losses import dice_coefficient
 import torch.nn.functional as F
 
 
@@ -120,6 +121,145 @@ def seg_decode(seg_feat, conv_weight, xs, ys, inds,  K):
 
     return seg_masks
 
+def parse_dynamic_params(params, channels, weight_nums, bias_nums):
+    assert params.dim() == 2
+    assert len(weight_nums) == len(bias_nums)
+    assert params.size(1) == sum(weight_nums) + sum(bias_nums)
+
+    num_insts = params.size(0)
+    num_layers = len(weight_nums)
+
+    params_splits = list(torch.split_with_sizes(
+        params, weight_nums + bias_nums, dim=1
+    ))
+
+    weight_splits = params_splits[:num_layers]
+    bias_splits = params_splits[num_layers:]
+
+    for l in range(num_layers):
+        if l < num_layers - 1:
+            # out_channels x in_channels x 1 x 1
+            weight_splits[l] = weight_splits[l].reshape(num_insts * channels, -1, 1, 1)
+            bias_splits[l] = bias_splits[l].reshape(num_insts * channels)
+        else:
+            # out_channels x in_channels x 1 x 1
+            weight_splits[l] = weight_splits[l].reshape(num_insts * 1, -1, 1, 1)
+            bias_splits[l] = bias_splits[l].reshape(num_insts)
+
+    return weight_splits, bias_splits
+
+class CondInst(nn.Module):
+    def __init__(self,feat_channel):
+        super(CondInst, self).__init__()
+        self.in_channels=feat_channel
+        self.channels=feat_channel
+        self.num_layers = 3
+
+        weight_nums, bias_nums = [], []
+        for l in range(self.num_layers):
+            if l == 0:
+                weight_nums.append((self.in_channels + 2) * self.channels)
+                bias_nums.append(self.channels)
+            elif l == self.num_layers - 1:
+                weight_nums.append(self.channels * 1)
+                bias_nums.append(1)
+            else:
+                weight_nums.append(self.channels * self.channels)
+                bias_nums.append(self.channels)
+
+        self.weight_nums = weight_nums
+        self.bias_nums = bias_nums
+
+    def mask_heads_forward(self, features, weights, biases, num_insts):
+        '''
+        :param features
+        :param weights: [w0, w1, ...]
+        :param bias: [b0, b1, ...]
+        :return:
+        '''
+        assert features.dim() == 4
+        n_layers = len(weights)
+        x = features
+        for i, (w, b) in enumerate(zip(weights, biases)):
+            x = F.conv2d(
+                x, w, bias=b,
+                stride=1, padding=0,
+                groups=num_insts
+            )
+            if i < n_layers - 1:
+                x = F.relu(x)
+        return x
+
+    def mask_heads_forward_with_coords(self, mask_feats, conv_weight, ind, mask=None):
+        """
+        Arguments:
+          seg_feats: B x Channel x H x W
+          ind, mask: B x max_objs
+        """
+        n_inst = torch.sum(mask)
+        N, _, H, W = mask_feats.size() # batch x channels x H x W
+        max_objs = ind.size(1)
+
+        conv_weights = _tranpose_and_gather_feat(conv_weight, ind) # batch x max_objs x dim
+
+        #im_inds = torch.tensor([ind.new_ones(ind.size(1)) * b for b in range(N)]).to(ind.device)
+        im_inds = torch.arange(N).unsqueeze(1).expand(N, max_objs).to(ind.device)
+        im_inds = im_inds[mask]
+        mask_head_params = conv_weights[mask] # n_inst x channels
+        inst_ind = ind[mask] # n_inst 
+ 
+        x,y = inst_ind%W,inst_ind/W
+        x_range = torch.arange(W).float().to(device=mask_feats.device)
+        y_range = torch.arange(H).float().to(device=mask_feats.device)
+        y_grid, x_grid = torch.meshgrid([y_range, x_range])
+        coords_map = torch.stack((x_grid, y_grid), dim=1).float()
+        inst_locations = torch.stack((x, y)).float()
+
+        relative_coords = inst_locations.reshape(-1, 1, 2) - coords_map.reshape(1, -1, 2)
+        relative_coords = relative_coords.permute(0, 2, 1).float()
+        #soi = self.sizes_of_interest.float()[instances.fpn_levels]
+        relative_coords = relative_coords# / soi.reshape(-1, 1, 1)
+        relative_coords = relative_coords.to(dtype=mask_feats.dtype)
+
+        mask_head_inputs = torch.cat([
+            relative_coords, mask_feats[im_inds].reshape(n_inst, self.in_channels, H * W)
+        ], dim=1)
+
+
+        mask_head_inputs = mask_head_inputs.reshape(1, -1, H, W)
+
+        weights, biases = parse_dynamic_params(
+            mask_head_params, self.channels,
+            self.weight_nums, self.bias_nums
+        )
+
+        mask_logits = self.mask_heads_forward(mask_head_inputs, weights, biases, n_inst)
+
+        mask_logits = mask_logits.reshape(-1, 1, H, W)
+
+        return mask_logits
+
+    def forward(self, seg_feat, conv_weight,  ind, mask=None, target=None, is_train=True):
+        if mask is None:
+          mask = torch.ones_like(ind)
+        if torch.sum(mask) == 0:
+          return torch.sum(mask)
+
+        batch_size, k = ind.size()
+        _, _, H, W = seg_feat.size()
+
+        mask = mask.byte() 
+        seg_logits = self.mask_heads_forward_with_coords(
+                    seg_feat, conv_weight, ind, mask)
+        seg_scores = seg_logits.sigmoid()
+        if is_train:
+          inst_target = target[mask]
+          seg_losses = dice_coefficient(seg_scores, inst_target)     
+          loss_seg = seg_losses.mean()
+          return loss_seg
+        else:
+          return seg_scores.reshape(batch_size, k, H, W)
+
 def sch_decode(sch_feat, weights, pre_ind, kmf_ind=None, track_K=1, nms_kernel=5):
   """
   Arguments:
@@ -186,147 +326,157 @@ def ltrb_amodal_decode(amodal_feat, inds, xs, ys, K):
                           ys.view(batch, K, 1) + ltrb_amodal[..., 3:4]], dim=2)
     return bboxes_amodal
 
-def generic_decode(output, K=100, opt=None):
-  if not ('hm' in output):
-    return {}
+class GenericDecode():
+  def __init__(self, K=100, opt=None):
+    self.K = K 
+    self.opt = opt
+    if 'seg' in self.opt.heads:
+      self.seg_decode = CondInst(self.opt.seg_feat_channel)
 
-  if opt.zero_tracking:
-    output['tracking'] *= 0
+  def generic_decode(self, output):
+    K = self.K
+    opt = self.opt
+
+    if not ('hm' in output):
+      return {}
+
+    if opt.zero_tracking:
+      output['tracking'] *= 0
+    
+    heat = output['hm']
+    batch, cat, height, width = heat.size()
+
+    heat = _nms(heat, kernel=opt.nms_kernel)
+    scores, inds, clses, ys0, xs0 = _topk(heat, K=K)
+
+    clses  = clses.view(batch, K)
+    scores = scores.view(batch, K)
+    bboxes = None
+    cts = torch.cat([xs0.unsqueeze(2), ys0.unsqueeze(2)], dim=2)
+    ret = {'scores': scores, 'clses': clses.float(), 
+          'xs': xs0, 'ys': ys0, 'cts': cts}
+    if 'reg' in output:
+      reg = output['reg']
+      reg = _tranpose_and_gather_feat(reg, inds)
+      reg = reg.view(batch, K, 2)
+      xs = xs0.view(batch, K, 1) + reg[:, :, 0:1]
+      ys = ys0.view(batch, K, 1) + reg[:, :, 1:2]
+    else:
+      xs = xs0.view(batch, K, 1) + 0.5
+      ys = ys0.view(batch, K, 1) + 0.5
+
+    xs0 = xs0.view(batch, K, 1)
+    ys0 = ys0.view(batch, K, 1)
+
+    if 'wh' in output:
+      bboxes = wh_decode(output['wh'], inds, xs, ys, K)
+      ret['bboxes'] = bboxes
   
-  heat = output['hm']
-  batch, cat, height, width = heat.size()
-
-  heat = _nms(heat, kernel=opt.nms_kernel)
-  scores, inds, clses, ys0, xs0 = _topk(heat, K=K)
-
-  clses  = clses.view(batch, K)
-  scores = scores.view(batch, K)
-  bboxes = None
-  cts = torch.cat([xs0.unsqueeze(2), ys0.unsqueeze(2)], dim=2)
-  ret = {'scores': scores, 'clses': clses.float(), 
-         'xs': xs0, 'ys': ys0, 'cts': cts}
-  if 'reg' in output:
-    reg = output['reg']
-    reg = _tranpose_and_gather_feat(reg, inds)
-    reg = reg.view(batch, K, 2)
-    xs = xs0.view(batch, K, 1) + reg[:, :, 0:1]
-    ys = ys0.view(batch, K, 1) + reg[:, :, 1:2]
-  else:
-    xs = xs0.view(batch, K, 1) + 0.5
-    ys = ys0.view(batch, K, 1) + 0.5
-
-  xs0 = xs0.view(batch, K, 1)
-  ys0 = ys0.view(batch, K, 1)
-
-  if 'wh' in output:
-    bboxes = wh_decode(output['wh'], inds, xs, ys, K)
-    ret['bboxes'] = bboxes
- 
-  if 'seg' in output:
-    seg_feat = output['seg']
-    conv_weight = output['conv_weight']
-    assert not opt.flip_test,"not support flip_test"
-    torch.cuda.synchronize()
-    seg_masks = seg_decode(seg_feat, conv_weight, xs0, ys0, inds,  K)
-    ret['seg'] = seg_masks
-  
-  if 'sch' in output:
-    sch_weight = output['sch_weight']
-    sch_weights = _tranpose_and_gather_feat(sch_weight, inds) 
-    ret['sch_weights'] = sch_weights.view(batch, K, -1)
-
-    if 'pre_inds' in output and output['pre_inds'].size(1) > 0:
-      track_K = opt.track_K 
-      nms_kernel = opt.nms_kernel
-      sch_feat = output['sch']
-      pre_inds = output['pre_inds']
-      pre_weights = output['pre_weights'] if 'pre_weights' in output else _tranpose_and_gather_feat(sch_weight, pre_inds) # for training debug
-      num_pre = pre_inds.size(1)
-
+    if 'seg' in output:
+      seg_feat = output['seg']
+      conv_weight = output['conv_weight']
       assert not opt.flip_test,"not support flip_test"
       torch.cuda.synchronize()
-      kmf_inds = output['kmf_inds'] if ('kmf_inds' in output and output['kmf_inds'] is not None) else None
-      track_score, track_inds, tys0, txs0, hms = sch_decode(sch_feat, pre_weights, pre_inds, kmf_inds, track_K=track_K, nms_kernel=nms_kernel)
+      seg_masks = self.seg_decode(seg_feat, conv_weight, inds, is_train=False)
+      ret['seg'] = seg_masks
+    
+    if 'sch' in output:
+      sch_weight = output['sch_weight']
+      sch_weights = _tranpose_and_gather_feat(sch_weight, inds) 
+      ret['sch_weights'] = sch_weights.view(batch, K, -1)
 
-      if 'reg' in output:
-        reg = output['reg']
-        track_reg = _tranpose_and_gather_feat(reg, track_inds.view(-1, num_pre * track_K))
-        txs = txs0.view(batch, num_pre * track_K, 1) + track_reg[:, :, 0:1]
-        tys = tys0.view(batch, num_pre * track_K, 1) + track_reg[:, :, 1:2]
-      else:
-        txs = txs0.view(batch, num_pre * track_K, 1) + 0.5
-        tys = tys0.view(batch, num_pre * track_K, 1) + 0.5
-      if 'wh' in output:
-        track_bboxes = wh_decode(output['wh'], track_inds.view(-1, num_pre * track_K), txs, tys, num_pre*track_K)
-      elif 'ltrb_amodal' in output:
-        track_bboxes = ltrb_amodal_decode(output['ltrb_amodal'], track_inds.view(-1, num_pre * track_K), txs, tys, num_pre*track_K)
-      ret['pre_inds'] = pre_inds # (batch, num_pre)
-      ret['track_scores'] = track_score # (batch, num_pre, track_K)
-      ret['track_bboxes'] = track_bboxes.view(batch, num_pre, track_K, 4)
-      ret['track_hms'] = hms
+      if 'pre_inds' in output and output['pre_inds'].size(1) > 0:
+        track_K = opt.track_K 
+        nms_kernel = opt.nms_kernel
+        sch_feat = output['sch']
+        pre_inds = output['pre_inds']
+        pre_weights = output['pre_weights'] if 'pre_weights' in output else _tranpose_and_gather_feat(sch_weight, pre_inds) # for training debug
+        num_pre = pre_inds.size(1)
+
+        assert not opt.flip_test,"not support flip_test"
+        torch.cuda.synchronize()
+        kmf_inds = output['kmf_inds'] if ('kmf_inds' in output and output['kmf_inds'] is not None) else None
+        track_score, track_inds, tys0, txs0, hms = sch_decode(sch_feat, pre_weights, pre_inds, kmf_inds, track_K=track_K, nms_kernel=nms_kernel)
+
+        if 'reg' in output:
+          reg = output['reg']
+          track_reg = _tranpose_and_gather_feat(reg, track_inds.view(-1, num_pre * track_K))
+          txs = txs0.view(batch, num_pre * track_K, 1) + track_reg[:, :, 0:1]
+          tys = tys0.view(batch, num_pre * track_K, 1) + track_reg[:, :, 1:2]
+        else:
+          txs = txs0.view(batch, num_pre * track_K, 1) + 0.5
+          tys = tys0.view(batch, num_pre * track_K, 1) + 0.5
+        if 'wh' in output:
+          track_bboxes = wh_decode(output['wh'], track_inds.view(-1, num_pre * track_K), txs, tys, num_pre*track_K)
+        elif 'ltrb_amodal' in output:
+          track_bboxes = ltrb_amodal_decode(output['ltrb_amodal'], track_inds.view(-1, num_pre * track_K), txs, tys, num_pre*track_K)
+        ret['pre_inds'] = pre_inds # (batch, num_pre)
+        ret['track_scores'] = track_score # (batch, num_pre, track_K)
+        ret['track_bboxes'] = track_bboxes.view(batch, num_pre, track_K, 4)
+        ret['track_hms'] = hms
+    
+    
+    if 'ltrb' in output:
+      ltrb = output['ltrb']
+      ltrb = _tranpose_and_gather_feat(ltrb, inds) # B x K x 4
+      ltrb = ltrb.view(batch, K, 4)
+      bboxes = torch.cat([xs0.view(batch, K, 1) + ltrb[..., 0:1], 
+                          ys0.view(batch, K, 1) + ltrb[..., 1:2],
+                          xs0.view(batch, K, 1) + ltrb[..., 2:3], 
+                          ys0.view(batch, K, 1) + ltrb[..., 3:4]], dim=2)
+      ret['bboxes'] = bboxes
+
   
-  
-  if 'ltrb' in output:
-    ltrb = output['ltrb']
-    ltrb = _tranpose_and_gather_feat(ltrb, inds) # B x K x 4
-    ltrb = ltrb.view(batch, K, 4)
-    bboxes = torch.cat([xs0.view(batch, K, 1) + ltrb[..., 0:1], 
-                        ys0.view(batch, K, 1) + ltrb[..., 1:2],
-                        xs0.view(batch, K, 1) + ltrb[..., 2:3], 
-                        ys0.view(batch, K, 1) + ltrb[..., 3:4]], dim=2)
-    ret['bboxes'] = bboxes
+    regression_heads = ['tracking', 'dep', 'rot', 'dim', 'amodel_offset',
+      'nuscenes_att', 'velocity']
 
- 
-  regression_heads = ['tracking', 'dep', 'rot', 'dim', 'amodel_offset',
-    'nuscenes_att', 'velocity']
+    for head in regression_heads:
+      if head in output:
+        ret[head] = _tranpose_and_gather_feat(
+          output[head], inds).view(batch, K, -1)
 
-  for head in regression_heads:
-    if head in output:
-      ret[head] = _tranpose_and_gather_feat(
-        output[head], inds).view(batch, K, -1)
+    if 'ltrb_amodal' in output:
+      ltrb_amodal = output['ltrb_amodal']
+      ltrb_amodal = _tranpose_and_gather_feat(ltrb_amodal, inds) # B x K x 4
+      ltrb_amodal = ltrb_amodal.view(batch, K, 4)
+      bboxes_amodal = torch.cat([xs0.view(batch, K, 1) + ltrb_amodal[..., 0:1], 
+                            ys0.view(batch, K, 1) + ltrb_amodal[..., 1:2],
+                            xs0.view(batch, K, 1) + ltrb_amodal[..., 2:3], 
+                            ys0.view(batch, K, 1) + ltrb_amodal[..., 3:4]], dim=2)
+      ret['bboxes_amodal'] = bboxes_amodal
+      ret['bboxes'] = bboxes_amodal
 
-  if 'ltrb_amodal' in output:
-    ltrb_amodal = output['ltrb_amodal']
-    ltrb_amodal = _tranpose_and_gather_feat(ltrb_amodal, inds) # B x K x 4
-    ltrb_amodal = ltrb_amodal.view(batch, K, 4)
-    bboxes_amodal = torch.cat([xs0.view(batch, K, 1) + ltrb_amodal[..., 0:1], 
-                          ys0.view(batch, K, 1) + ltrb_amodal[..., 1:2],
-                          xs0.view(batch, K, 1) + ltrb_amodal[..., 2:3], 
-                          ys0.view(batch, K, 1) + ltrb_amodal[..., 3:4]], dim=2)
-    ret['bboxes_amodal'] = bboxes_amodal
-    ret['bboxes'] = bboxes_amodal
+    if 'hps' in output:
+      kps = output['hps']
+      num_joints = kps.shape[1] // 2
+      kps = _tranpose_and_gather_feat(kps, inds)
+      kps = kps.view(batch, K, num_joints * 2)
+      kps[..., ::2] += xs0.view(batch, K, 1).expand(batch, K, num_joints)
+      kps[..., 1::2] += ys0.view(batch, K, 1).expand(batch, K, num_joints)
+      kps, kps_score = _update_kps_with_hm(
+        kps, output, batch, num_joints, K, bboxes, scores)
+      ret['hps'] = kps
+      ret['kps_score'] = kps_score
 
-  if 'hps' in output:
-    kps = output['hps']
-    num_joints = kps.shape[1] // 2
-    kps = _tranpose_and_gather_feat(kps, inds)
-    kps = kps.view(batch, K, num_joints * 2)
-    kps[..., ::2] += xs0.view(batch, K, 1).expand(batch, K, num_joints)
-    kps[..., 1::2] += ys0.view(batch, K, 1).expand(batch, K, num_joints)
-    kps, kps_score = _update_kps_with_hm(
-      kps, output, batch, num_joints, K, bboxes, scores)
-    ret['hps'] = kps
-    ret['kps_score'] = kps_score
+    if 'pre_inds' in output and output['pre_inds'] is not None:
+      pre_inds = output['pre_inds'] # B x pre_K
+      pre_K = pre_inds.shape[1]
+      pre_ys = (pre_inds / width).int().float()
+      pre_xs = (pre_inds % width).int().float()
 
-  if 'pre_inds' in output and output['pre_inds'] is not None:
-    pre_inds = output['pre_inds'] # B x pre_K
-    pre_K = pre_inds.shape[1]
-    pre_ys = (pre_inds / width).int().float()
-    pre_xs = (pre_inds % width).int().float()
-
-    ret['pre_cts'] = torch.cat(
-      [pre_xs.unsqueeze(2), pre_ys.unsqueeze(2)], dim=2)
+      ret['pre_cts'] = torch.cat(
+        [pre_xs.unsqueeze(2), pre_ys.unsqueeze(2)], dim=2)
 
 
-  if 'kmf_inds' in output and output['kmf_inds'] is not None:
-    kmf_inds = output['kmf_inds'] # B x pre_K
-    kmf_K = kmf_inds.shape[1]
-    kmf_ys = (kmf_inds / width).int().float()
-    kmf_xs = (kmf_inds % width).int().float()
+    if 'kmf_inds' in output and output['kmf_inds'] is not None:
+      kmf_inds = output['kmf_inds'] # B x pre_K
+      kmf_K = kmf_inds.shape[1]
+      kmf_ys = (kmf_inds / width).int().float()
+      kmf_xs = (kmf_inds % width).int().float()
 
-    ret['kmf_cts'] = torch.cat(
-      [kmf_xs.unsqueeze(2), kmf_ys.unsqueeze(2)], dim=2)
-  return ret
+      ret['kmf_cts'] = torch.cat(
+        [kmf_xs.unsqueeze(2), kmf_ys.unsqueeze(2)], dim=2)
+    return ret
 
 
   
