@@ -5,7 +5,7 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 from .utils import _gather_feat, _tranpose_and_gather_feat
-from .utils import _nms, _topk, _topk_channel
+from .utils import _nms, _topk, _topk_channel, _sigmoid
 from .losses import dice_coefficient, FastFocalLoss
 import torch.nn.functional as F
 
@@ -335,7 +335,7 @@ class SchTrack(nn.Module):
         mask = mask.byte() 
         hm_logits = self.sch_heads_forward_with_coords(
                     sch_feat, conv_weight, pre_ind, kmf_ind, mask)
-        hm_scores = hm_logits.sigmoid()
+        hm_scores = _sigmoid(hm_logits)
         if is_train:
           inst_target = target[mask]
           inst_ind = ind[mask].unsqueeze(1)
