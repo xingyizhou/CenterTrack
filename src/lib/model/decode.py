@@ -179,7 +179,7 @@ class CondInst(nn.Module):
         relative_coords = inst_locations.reshape(-1, 1, 2) - coords_map.reshape(1, -1, 2)
         relative_coords = relative_coords.permute(0, 2, 1).float()
         #soi = self.sizes_of_interest.float()[instances.fpn_levels]
-        relative_coords = relative_coords# / soi.reshape(-1, 1, 1)
+        relative_coords = relative_coords / 128
         relative_coords = relative_coords.to(dtype=mask_feats.dtype)
 
         mask_head_inputs = torch.cat([
@@ -299,7 +299,7 @@ class SchTrack(nn.Module):
         relative_coords = inst_locations.reshape(-1, 1, 2) - coords_map.reshape(1, -1, 2)
         relative_coords = relative_coords.permute(0, 2, 1).float()
         #soi = self.sizes_of_interest.float()[instances.fpn_levels]
-        relative_coords = relative_coords# / soi.reshape(-1, 1, 1)
+        relative_coords = relative_coords / 128
         relative_coords = relative_coords.to(dtype=mask_feats.dtype)
 
         mask_head_inputs = torch.cat([
