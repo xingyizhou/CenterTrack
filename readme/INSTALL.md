@@ -53,5 +53,15 @@ After installing Anaconda:
     cd DCNv2
     ./make.sh
     ~~~
+    
+    In case you meet errors to compile (from [DCNv2_newest]())
+    ~~~
+    cd $CenterTrack_ROOT/src/lib/model/networks/
+    git clone https://codechina.csdn.net/mirrors/jinfagang/DCNv2_latest.git
+    cd DCNv2_latest
+    python3 setup.py build develop
+    ~~~
+    
+    If you want to build with commend `./make.sh`, remove `sudo` in make.sh file to prevent installing out of current environment.
 
-6. Download pertained models for [monocular 3D tracking](https://drive.google.com/open?id=1e8zR1m1QMJne-Tjp-2iY_o81hn2CiQRt), [80-category tracking](https://drive.google.com/open?id=1tJCEJmdtYIh8VuN8CClGNws3YO7QGd40), or [pose tracking](https://drive.google.com/open?id=1H0YvFYCOIZ06EzAkC2NxECNQGXxK27hH) and move them to `$CenterTrack_ROOT/models/`. More models can be found in [Model zoo](MODEL_ZOO.md).
+6. Download pretrained models for [monocular 3D tracking](https://drive.google.com/open?id=1e8zR1m1QMJne-Tjp-2iY_o81hn2CiQRt), [80-category tracking](https://drive.google.com/open?id=1tJCEJmdtYIh8VuN8CClGNws3YO7QGd40), or [pose tracking](https://drive.google.com/open?id=1H0YvFYCOIZ06EzAkC2NxECNQGXxK27hH) and move them to `$CenterTrack_ROOT/models/`. More models can be found in [Model zoo](MODEL_ZOO.md).
