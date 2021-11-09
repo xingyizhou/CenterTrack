@@ -209,7 +209,6 @@ class CondInst(nn.Module):
         batch_size, k = ind.size()
         _, _, H, W = seg_feat.size()
 
-        
         mask = mask.byte() if is_torch_old() else torch.bool()
         seg_logits = self.mask_heads_forward_with_coords(
                     seg_feat, conv_weight, ind, mask)
