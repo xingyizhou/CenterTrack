@@ -54,7 +54,7 @@ After installing Anaconda:
     ./make.sh
     ~~~
     
-    In case you meet errors to compile (from [DCNv2_newest]())
+    In case you meet errors to compile (from [DCNv2_newest](https://codechina.csdn.net/mirrors/jinfagang/DCNv2_latest))
     ~~~
     cd $CenterTrack_ROOT/src/lib/model/networks/
     git clone https://codechina.csdn.net/mirrors/jinfagang/DCNv2_latest.git
