@@ -85,3 +85,6 @@ def _topk(scores, K=100):
   topk_xs = _gather_feat(topk_xs.view(batch, -1, 1), topk_ind).view(batch, K)
 
   return topk_score, topk_inds, topk_clses, topk_ys, topk_xs
+
+def is_torch_old():
+  return float('.'.join(torch.__version__.split('.')[:2])) < 1.3

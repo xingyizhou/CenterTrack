@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import torch
 import torch.nn as nn
-from .utils import _gather_feat, _tranpose_and_gather_feat
+from .utils import _gather_feat, _tranpose_and_gather_feat, is_torch_old
 from .utils import _nms, _topk, _topk_channel, _sigmoid
 from .losses import dice_coefficient, FastFocalLoss
 import torch.nn.functional as F
@@ -173,7 +173,7 @@ class CondInst(nn.Module):
         x_range = torch.arange(W).float().to(device=mask_feats.device)
         y_range = torch.arange(H).float().to(device=mask_feats.device)
         y_grid, x_grid = torch.meshgrid([y_range, x_range])
-        coords_map = torch.stack((x_grid, y_grid), dim=1).float()
+        coords_map = torch.stack((x_grid.reshape(-1), y_grid.reshape(-1)), dim=1).float()
         inst_locations = torch.stack((x, y)).float()
 
         relative_coords = inst_locations.reshape(-1, 1, 2) - coords_map.reshape(1, -1, 2)
@@ -209,7 +209,8 @@ class CondInst(nn.Module):
         batch_size, k = ind.size()
         _, _, H, W = seg_feat.size()
 
-        mask = mask.byte() 
+        
+        mask = mask.byte() if is_torch_old() else torch.bool()
         seg_logits = self.mask_heads_forward_with_coords(
                     seg_feat, conv_weight, ind, mask)
         seg_scores = seg_logits.sigmoid()
@@ -293,7 +294,7 @@ class SchTrack(nn.Module):
         x_range = torch.arange(W).float().to(device=mask_feats.device)
         y_range = torch.arange(H).float().to(device=mask_feats.device)
         y_grid, x_grid = torch.meshgrid([y_range, x_range])
-        coords_map = torch.stack((x_grid, y_grid), dim=1).float()
+        coords_map = torch.stack((x_grid.reshape(-1), y_grid.reshape(-1)), dim=1).float()
         inst_locations = torch.stack((x, y)).float()
 
         relative_coords = inst_locations.reshape(-1, 1, 2) - coords_map.reshape(1, -1, 2)
@@ -334,7 +335,7 @@ class SchTrack(nn.Module):
         batch_size, k = pre_ind.size()
         _, _, H, W = sch_feat.size()
 
-        mask = mask.byte() 
+        mask = mask.byte() if is_torch_old() else mask.bool()
         hm_logits = self.sch_heads_forward_with_coords(
                     sch_feat, conv_weight, pre_ind, kmf_ind, mask, is_train=is_train)
         hm_scores = _sigmoid(hm_logits)
