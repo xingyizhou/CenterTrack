@@ -245,7 +245,7 @@ class SchTrack(nn.Module):
         self.weight_nums = weight_nums
         self.bias_nums = bias_nums
 
-        self.num_kernel = opt.nms_kernel
+        self.nms_kernel = opt.nms_kernel
         self.track_K = opt.track_K
 
     def sch_heads_forward(self, features, weights, biases, num_insts):
@@ -268,7 +268,7 @@ class SchTrack(nn.Module):
                 x = F.relu(x)
         return x
 
-    def sch_heads_forward_with_coords(self, mask_feats, conv_weight, pre_ind, kmf_ind=None, mask=None):
+    def sch_heads_forward_with_coords(self, mask_feats, conv_weight, pre_ind, kmf_ind=None, mask=None, is_train=True):
         """
         Arguments:
           seg_feats: B x Channel x H x W
@@ -278,8 +278,10 @@ class SchTrack(nn.Module):
         N, _, H, W = mask_feats.size() # batch x channels x H x W
         max_objs = pre_ind.size(1)
 
-        conv_weights = _tranpose_and_gather_feat(conv_weight, pre_ind) # batch x max_objs x dim
-
+        if is_train:
+          conv_weights = _tranpose_and_gather_feat(conv_weight, pre_ind) # batch x max_objs x dim
+        else:
+          conv_weights = conv_weight
       
         im_inds = torch.arange(N).unsqueeze(1).expand(N, max_objs).to(pre_ind.device)
         im_inds = im_inds[mask]
@@ -318,7 +320,7 @@ class SchTrack(nn.Module):
 
         return hm_logits
 
-    def forward(self, sch_feat, conv_weight, ind, pre_ind, kmf_ind=None, mask=None, target=None, is_train=True):
+    def forward(self, sch_feat, conv_weight, pre_ind, kmf_ind=None, mask=None, target=None, ind=None, is_train=True):
         """
         Arguments:
           sch_feats, target: B x M x H x W
@@ -334,7 +336,7 @@ class SchTrack(nn.Module):
 
         mask = mask.byte() 
         hm_logits = self.sch_heads_forward_with_coords(
-                    sch_feat, conv_weight, pre_ind, kmf_ind, mask)
+                    sch_feat, conv_weight, pre_ind, kmf_ind, mask, is_train=is_train)
         hm_scores = _sigmoid(hm_logits)
         if is_train:
           inst_target = target[mask]
@@ -344,7 +346,7 @@ class SchTrack(nn.Module):
           hm_losses = self.hm_crit(hm_scores, inst_target, inst_ind, inst_mask.float(), cat)     
           return hm_losses
         else:
-          hm = _nms(hm_score.view(batch_size, k, H, W), kernel=self.nms_kernel)
+          hm = _nms(hm_logits.view(batch_size, k, H, W), kernel=self.nms_kernel)
           scores, inds, ys0, xs0 = _topk_channel(hm, K=self.track_K)
           return scores, inds, ys0, xs0, hm
           
@@ -427,6 +429,7 @@ class GenericDecode():
       ret['seg'] = seg_masks
     
     if 'sch' in output:
+      track_K = opt.track_K 
       sch_weight = output['sch_weight']
       sch_weights = _tranpose_and_gather_feat(sch_weight, inds) 
       ret['sch_weights'] = sch_weights.view(batch, K, -1)
@@ -440,7 +443,7 @@ class GenericDecode():
         assert not opt.flip_test,"not support flip_test"
         torch.cuda.synchronize()
         kmf_inds = output['kmf_inds'] if ('kmf_inds' in output and output['kmf_inds'] is not None) else None
-        track_score, track_inds, tys0, txs0, hms = self.sch_decode(sch_feat, pre_weights, pre_inds, kmf_inds)
+        track_score, track_inds, tys0, txs0, hms = self.sch_decode(sch_feat, pre_weights, pre_ind=pre_inds, kmf_ind=kmf_inds, is_train=False)
 
         if 'reg' in output:
           reg = output['reg']
