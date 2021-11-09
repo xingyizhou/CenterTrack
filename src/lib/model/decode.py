@@ -174,7 +174,7 @@ class CondInst(nn.Module):
         y_range = torch.arange(H).float().to(device=mask_feats.device)
         y_grid, x_grid = torch.meshgrid([y_range, x_range])
         coords_map = torch.stack((x_grid.reshape(-1), y_grid.reshape(-1)), dim=1).float()
-        inst_locations = torch.stack((x, y)).float()
+        inst_locations = torch.stack((x, y), dim=1).float()
 
         relative_coords = inst_locations.reshape(-1, 1, 2) - coords_map.reshape(1, -1, 2)
         relative_coords = relative_coords.permute(0, 2, 1).float()
@@ -209,7 +209,7 @@ class CondInst(nn.Module):
         batch_size, k = ind.size()
         _, _, H, W = seg_feat.size()
 
-        mask = mask.byte() if is_torch_old() else mask.bool()
+        mask = mask.byte() if is_torch_old() else torch.bool()
         seg_logits = self.mask_heads_forward_with_coords(
                     seg_feat, conv_weight, ind, mask)
         seg_scores = seg_logits.sigmoid()
@@ -294,7 +294,7 @@ class SchTrack(nn.Module):
         y_range = torch.arange(H).float().to(device=mask_feats.device)
         y_grid, x_grid = torch.meshgrid([y_range, x_range])
         coords_map = torch.stack((x_grid.reshape(-1), y_grid.reshape(-1)), dim=1).float()
-        inst_locations = torch.stack((x, y)).float()
+        inst_locations = torch.stack((x, y), dim=1).float()
 
         relative_coords = inst_locations.reshape(-1, 1, 2) - coords_map.reshape(1, -1, 2)
         relative_coords = relative_coords.permute(0, 2, 1).float()
