@@ -343,7 +343,7 @@ class SchTrack(nn.Module):
           inst_ind = ind[mask].unsqueeze(1)
           cat = torch.zeros_like(inst_ind)
           inst_mask = torch.ones_like(inst_ind)
-          hm_losses = self.hm_crit(hm_scores, inst_target, inst_ind, inst_mask.float(), cat)     
+          hm_losses = self.hm_crit(hm_scores.view(-1, 1, H, W), inst_target.view(-1, 1, H, W), inst_ind.view(-1, 1), inst_mask.float().view(-1, 1), cat.view(-1, 1))     
           return hm_losses
         else:
           hm = _nms(hm_logits.view(batch_size, k, H, W), kernel=self.nms_kernel)
