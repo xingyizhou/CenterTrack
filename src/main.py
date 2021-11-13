@@ -63,6 +63,7 @@ def main(opt):
   trainer.set_device(opt.gpus, opt.chunk_sizes, opt.device)
   
   if opt.val_intervals < opt.num_epochs or opt.test:
+    best_val_loss = 1e8
     print('Setting up validation data...')
     val_loader = torch.utils.data.DataLoader(
       Dataset(opt, 'val'), batch_size=opt.batch_size, shuffle=False, num_workers=1,
