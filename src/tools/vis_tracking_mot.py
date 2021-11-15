@@ -5,8 +5,9 @@ import glob
 import sys
 from collections import defaultdict
 from pathlib import Path
+from tqdm import tqdm
 
-GT_PATH = '../../data/mot17/test/'
+GT_PATH = '../../data/mot17/train/'
 IMG_PATH = GT_PATH
 SAVE_VIDEO = True
 RESIZE = 2
@@ -23,23 +24,31 @@ def draw_bbox(img, bboxes, c=(255, 0, 255)):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, 
                 (255, 122, 255), thickness=1, lineType=cv2.LINE_AA)
 
+def getVideoWriter(save_path, seq, H, W):
+  fourcc = cv2.VideoWriter_fourcc(*'XVID')
+  video = cv2.VideoWriter(
+    '{}/{}.avi'.format(save_path, seq),fourcc, 10.0, (H, W))
+  return video
+
 if __name__ == '__main__':
   seqs = os.listdir(GT_PATH)
   if SAVE_VIDEO:
+    print(sys.argv[1])
     save_path = sys.argv[1][:sys.argv[1].rfind('/res')] + '/video'
     if not os.path.exists(save_path):
       os.mkdir(save_path)
     print('save_video_path', save_path)
   for seq in sorted(seqs):
+    video = None
     print('seq', seq)
+    if 'FRCNN' not in seq:
+      print('skip')
+      continue
     # if len(sys.argv) > 2 and not sys.argv[2] in seq:
     #   continue
     if '.DS_Store' in seq:
       continue
-    # if SAVE_VIDEO:
-    #   fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    #   video = cv2.VideoWriter(
-    #     '{}/{}.avi'.format(save_path, seq),fourcc, 10.0, (1024, 750))
+    
     seq_path = '{}/{}/'.format(GT_PATH, seq)
     if IS_GT:
       ann_path = seq_path + 'gt/gt.txt'
@@ -48,7 +57,7 @@ if __name__ == '__main__':
     anns = np.loadtxt(ann_path, dtype=np.float32, delimiter=',')
     print('anns shape', anns.shape)
     image_to_anns = defaultdict(list)
-    for i in range(anns.shape[0]):
+    for i in tqdm(range(anns.shape[0])):
       if (not IS_GT) or (int(anns[i][6]) == 1 and float(anns[i][8]) >= 0.25):
         frame_id = int(anns[i][0])
         track_id = int(anns[i][1])
@@ -73,7 +82,7 @@ if __name__ == '__main__':
     images = os.listdir(img_path)
     num_images = len([image for image in images if 'jpg' in image])
     
-    for i in range(num_images):
+    for i in tqdm(range(num_images)):
       frame_id = i + 1
       file_name = '{}/img1/{:06d}.jpg'.format(seq, i + 1)
       file_path = IMG_PATH + file_name
@@ -87,7 +96,9 @@ if __name__ == '__main__':
       draw_bbox(img, image_to_anns[frame_id])
       # cv2.imshow('gt', img)
       cv2.waitKey()
-      # if SAVE_VIDEO:
-      #   video.write(img_pred)
-    # if SAVE_VIDEO:
-    #   video.release()
+      if SAVE_VIDEO:
+        if video is None:
+          video = getVideoWriter(save_path, seq, img.shape[1], img.shape[0])
+        video.write(img_pred)
+    if SAVE_VIDEO:
+      video.release()
