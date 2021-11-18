@@ -130,7 +130,10 @@ def prefetch_test(opt):
     json.dump(_to_list(copy.deepcopy(results)), 
               open(opt.save_dir + '/save_results_{}{}.json'.format(
                 opt.test_dataset, opt.dataset_version), 'w'))
-  dataset.run_eval(results, opt.save_dir)
+  #dataset.run_eval(results, opt.save_dir)
+  dirname = f"{opt.exp_id}" if opt.dir_suffix is None else f"{opt.exp_id}-{opt.dir_suffix}"
+  ext_save_dir = os.path.join('/home/master/08/vtsai01/CenMOTS/results/', dirname, 'data')
+  dataset.run_eval(results, ext_save_dir)
 
 def test(opt):
   os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpus_str
@@ -179,7 +182,10 @@ def test(opt):
     json.dump(_to_list(copy.deepcopy(results)), 
               open(opt.save_dir + '/save_results_{}{}.json'.format(
                 opt.test_dataset, opt.dataset_version), 'w'))
-  dataset.run_eval(results, opt.save_dir)
+  #dataset.run_eval(results, opt.save_dir)
+  dirname = f"{opt.exp_id}" if opt.dir_suffix is None else f"{opt.exp_id}-{opt.dir_suffix}"
+  ext_save_dir = os.path.join('/home/master/08/vtsai01/CenMOTS/results/', dirname, 'data')
+  dataset.run_eval(results, ext_save_dir)
 
 
 def _to_list(results):

@@ -52,7 +52,7 @@ class MOT(GenericDataset):
   def save_results(self, results, save_dir):
     results_dir = os.path.join(save_dir, 'results_mot{}'.format(self.dataset_version))
     if not os.path.exists(results_dir):
-      os.mkdir(results_dir)
+      os.makedirs(results_dir)
     for video in self.coco.dataset['videos']:
       video_id = video['id']
       file_name = video['file_name']
