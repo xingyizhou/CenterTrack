@@ -5,7 +5,7 @@
 - The experiments are run with PyTorch 1.0, CUDA 10.0, and CUDNN 7.5.
 - Training times are measured on our servers with TITAN V GPUs (12 GB Memory).
 - Testing times are measured on our local machine with TITAN Xp GPU. 
-- The models can be downloaded directly from [Google drive](https://drive.google.com/open?id=1u4n_WwvDOJz4ws_KKQUMCpHXyvA6tj-I).
+- The models can be downloaded directly from [Google drive](https://drive.google.com/drive/folders/1y_CWlbboW_dfOx6zT9MU4ugLaLc6FEE8).
 
 ## 2D bounding box Tracking
 
@@ -13,11 +13,11 @@
 
 | Model                 | GPUs |Train time| Test time | Valication MOTA  | Test MOTA  | Download | 
 |-----------------------|------|----------|-----------|------------------|------------|----------|
-| [mot17_fulltrain](../experiments/mot17_fulltrain.sh)       |    4 |    4h    | 45ms      |          -       |67.3 (Private Detection)|  [model](https://drive.google.com/open?id=1h_8Ts11rf0GQ4_n6FgmCeBuFcWrRjJfa)     |
-| [mot17_fulltrain_sc](../experiments/mot17_fulltrain_sc.sh)    |    4 |    4h    | 45ms      |          -       |61.4 (Public Detection) | [model](https://drive.google.com/open?id=1WXBlzHsxHQTELvusJSgEWw_wydC6u7XB)  |
-| [mot17_half](../experiments/mot17_half.sh)            |    4 |    2h    | 45ms      |         66.1     |      -     | [model](https://drive.google.com/open?id=1sf1bWJ1LutwQ_wp176nd2Y3HII9WeFf0) |
-| [mot17_half_sc](../experiments/mot17_half_sc.sh)         |    4 |    2h    | 45ms      |         60.7     |      -     | [model](https://drive.google.com/open?id=12xnXeY-kW3otNjCoQtyJAayHFiQdTTAU) |
-| [crowdhuman](../experiments/crowdhuman.sh)            |    4 |    21h   | 45ms      |         52.2     |      -     |[model](https://drive.google.com/open?id=1rIVl-jSG6oiBdiJmCvIAUOeasT7YllRZ) |
+| [mot17_fulltrain](../experiments/mot17_fulltrain.sh)       |    4 |    4h    | 45ms      |          -       |67.3 (Private Detection)|  [model](https://drive.google.com/file/d/1JYqO_IEoHpd7JEzZRXZSVesnEL4e-tnf)     |
+| [mot17_fulltrain_sc](../experiments/mot17_fulltrain_sc.sh)    |    4 |    4h    | 45ms      |          -       |61.4 (Public Detection) | [model](https://drive.google.com/file/d/17rtVMuFOnRzXj0_3egrFI5j-wc8XviDZ)  |
+| [mot17_half](../experiments/mot17_half.sh)            |    4 |    2h    | 45ms      |         66.1     |      -     | [model](https://drive.google.com/file/d/1rJ0fzRcpRQPjaN17lcqfKgsz-wJRifHh) |
+| [mot17_half_sc](../experiments/mot17_half_sc.sh)         |    4 |    2h    | 45ms      |         60.7     |      -     | [model](https://drive.google.com/file/d/1o_cCo92WiVg8mgwyESd1Gg1AZYnq1iAJ) |
+| [crowdhuman](../experiments/crowdhuman.sh)            |    4 |    21h   | 45ms      |         52.2     |      -     |[model](https://drive.google.com/file/d/1SD31FLwbXArcX3LXnRCqh6RF-q38nO7f) |
 
 #### Notes
 
@@ -37,9 +37,9 @@
 
 | Model                 |GPUs| Train time| Test time | Validation MOTA  | Test MOTA  | Download  |
 |-----------------------|----|-----------|-----------|------------------|------------|-----------|
-| [kitti_fulltrain](../experiments/kitti_fulltrain.sh) (flip)| 2  |     9h    |      66   |               -  |   89.44    | [model](https://drive.google.com/open?id=1kBX4AgQj7R7HvgMdbgBcwvIac-IFp95h)  |
-| [kitti_half](../experiments/kitti_half.sh)            | 2  |     4.5h  |      40   |             88.7 |   -        | [model](https://drive.google.com/open?id=1_VtGal9UzZE3n3QcVa0brZ7nNAwqPzd-)  |
-| [kitti_half_sc](../experiments/kitti_half_sc.sh)         | 2  |     4.5h  |      40   |             84.5 |   -        | [model](https://drive.google.com/open?id=1Kv8kA7VLBqVst1ZcfB9gRH8TWs5oPN_h)|
+| [kitti_fulltrain](../experiments/kitti_fulltrain.sh) (flip)| 2  |     9h    |      66   |               -  |   89.44    | [model](https://drive.google.com/file/d/13oUEpeZ8bVQ6z7A6SH88de4SwLgh_kMB)  |
+| [kitti_half](../experiments/kitti_half.sh)            | 2  |     4.5h  |      40   |             88.7 |   -        | [model](https://drive.google.com/file/d/1AZiFG0p3VxB2pA_5XIkbue4ASfxaA3e1)  |
+| [kitti_half_sc](../experiments/kitti_half_sc.sh)         | 2  |     4.5h  |      40   |             84.5 |   -        | [model](https://drive.google.com/file/d/13rmdfi1rX3X7yFOndzyARTYO51uSNW0Z)|
 
 #### Notes
 
@@ -54,8 +54,8 @@
 
 | Model                    | GPUs |Train time| Test time | Val AMOTA@0.2 | Val AMOTA | Val mAP |  Download | 
 |--------------------------|------|----------|-----------|---------------|-----------|---------|-----------|
-| [nuScenes_3Ddetection_e140](../experiments/nuScenes_3Ddetection_e140.sh)| 8    |     72h  |    28ms   |        -      |   -       |  30.27  | [model](https://drive.google.com/open?id=1ZSG9swryMEfBJ104WH8CP7kcypCobFlU) |
-| [nuScenes_3Dtracking](../experiments/nuScenes_3Dtracking.sh)      | 8    |     40h  |    28ms   |       28.3    |  6.8      |  -      | [model](https://drive.google.com/open?id=1e8zR1m1QMJne-Tjp-2iY_o81hn2CiQRt) |
+| [nuScenes_3Ddetection_e140](../experiments/nuScenes_3Ddetection_e140.sh)| 8    |     72h  |    28ms   |        -      |   -       |  30.27  | [model](https://drive.google.com/file/d/1o989b1tANh49uHhNbsCCJ5J57FGiaFut) |
+| [nuScenes_3Dtracking](../experiments/nuScenes_3Dtracking.sh)      | 8    |     40h  |    28ms   |       28.3    |  6.8      |  -      | [model](https://drive.google.com/file/d/1gPQFzqneDtT_PjJRRuyskRsNTRHXovw1) |
 
 #### Notes
 
@@ -68,8 +68,8 @@
 
 | Model                 |GPUs| Train time| Test time | Download  |
 |-----------------------|----|-----------|-----------|-----------|
-| [coco_tracking](../experiments/coco_tracking.sh)         | 8  |     39h   |    30ms   | [model](https://drive.google.com/open?id=1tJCEJmdtYIh8VuN8CClGNws3YO7QGd40)   |
-| [coco_pose_tracking](../experiments/coco_pose_tracking.sh)    | 8  |     19h   |    33ms   | [model](https://drive.google.com/open?id=1H0YvFYCOIZ06EzAkC2NxECNQGXxK27hH)|
+| [coco_tracking](../experiments/coco_tracking.sh)         | 8  |     39h   |    30ms   | [model](https://drive.google.com/file/d/11DEfWa0TKYzNqY3CXR51WVvjMb4oRl08)   |
+| [coco_pose_tracking](../experiments/coco_pose_tracking.sh)    | 8  |     19h   |    33ms   | [model](https://drive.google.com/file/d/1yGFC_Q9wzSHL1d4eZW_44EBB2H42YKYt)|
 
 - Both models are trained with the "training on static image data" technic in our paper.
 - The models are not evaluated on any benchmarks since there are no suitable ones in this setting. We provide them for demo purpose only.
