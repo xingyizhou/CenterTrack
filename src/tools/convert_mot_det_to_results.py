@@ -4,15 +4,16 @@ import os
 from collections import defaultdict
 split = 'val_half'
 
-DET_PATH = '../../data/mot17/'
+DET_PATH = '../../data/mot17/train'
 ANN_PATH = '../../data/mot17/annotations/{}.json'.format(split)
 OUT_DIR = '../../data/mot17/results/'
 OUT_PATH = OUT_DIR + '{}_det.json'.format(split)
+IS_THIRD_PARTY = False
 
 if __name__ == '__main__':
   if not os.path.exists(OUT_DIR):
     os.mkdir(OUT_DIR)
-  seqs = [s for s in os.listdir(DET_PATH) if '_det' in s]
+  seqs = [s for s in os.listdir(DET_PATH)]
   data = json.load(open(ANN_PATH, 'r'))
   images = data['images']
   image_to_anns = defaultdict(list)
