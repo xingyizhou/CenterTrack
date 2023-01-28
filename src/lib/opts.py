@@ -14,7 +14,7 @@ class opts(object):
                              help='ctdet | ddd | multi_pose '
                              '| tracking or combined with ,')
     self.parser.add_argument('--dataset', default='coco',
-                             help='see lib/dataset/dataset_facotry for ' + 
+                             help='see lib/dataset/dataset_factory for ' + 
                             'available datasets')
     self.parser.add_argument('--test_dataset', default='',
                              help='coco | kitti | coco_hp | pascal')
@@ -24,7 +24,7 @@ class opts(object):
                              help='level of visualization.'
                                   '1: only show the final detection results'
                                   '2: show the network output features'
-                                  '3: use matplot to display' # useful when lunching training with ipython notebook
+                                  '3: use matplot to display' # useful when launching training with ipython notebook
                                   '4: save all visualizations to disk')
     self.parser.add_argument('--no_pause', action='store_true')
     self.parser.add_argument('--demo', default='', 
