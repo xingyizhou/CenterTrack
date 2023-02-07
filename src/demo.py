@@ -43,7 +43,7 @@ def demo(opt):
 
   # Initialize output video
   out = None
-  out_name = opt.demo[opt.demo.rfind('/') + 1:]
+  out_name = opt.demo[opt.demo.rfind('/') + 1: + opt.demo.rfind('.')]
   print('out_name', out_name)
   if opt.save_video:
     # fourcc = cv2.VideoWriter_fourcc(*'XVID')
