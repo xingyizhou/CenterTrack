@@ -394,7 +394,7 @@ class opts(object):
       'tracking,ctdet': 'coco', 'tracking,multi_pose': 'coco_hp', 
       'tracking,ddd': 'nuscenes'
     }
-    opt = self.parse()
+    opt = self.parse(args)
     from dataset.dataset_factory import dataset_factory
     train_dataset = default_dataset_info[opt.task] \
       if opt.task in default_dataset_info else 'coco'
