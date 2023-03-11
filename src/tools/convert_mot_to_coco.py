@@ -19,6 +19,8 @@ if __name__ == '__main__':
     out = {'images': [], 'annotations': [], 
            'categories': [{'id': 1, 'name': 'pedestrain'}],
            'videos': []}
+    print('\n data_path: ', data_path)
+    # if not os.path.exists(data_path): os.mkdir(data_path)
     seqs = os.listdir(data_path)
     image_cnt = 0
     ann_cnt = 0
@@ -33,6 +35,7 @@ if __name__ == '__main__':
         'id': video_cnt,
         'file_name': seq})
       seq_path = '{}/{}/'.format(data_path, seq)
+      print('\n seq_path: ', seq_path)
       img_path = seq_path + 'img1/'
       ann_path = seq_path + 'gt/gt.txt'
       images = os.listdir(img_path)
