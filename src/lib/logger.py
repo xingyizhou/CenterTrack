@@ -29,8 +29,8 @@ class Logger(object):
                 if not name.startswith('_'))
     file_name = os.path.join(opt.save_dir, 'opt.txt')
     with open(file_name, 'wt') as opt_file:
-      opt_file.write('==> commit hash: {}\n'.format(
-        subprocess.check_output(["git", "describe"])))
+      # opt_file.write('==> commit hash: {}\n'.format(
+      #   subprocess.check_output(["git", "describe"])))
       opt_file.write('==> torch version: {}\n'.format(torch.__version__))
       opt_file.write('==> cudnn version: {}\n'.format(
         torch.backends.cudnn.version()))

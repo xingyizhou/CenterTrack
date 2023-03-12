@@ -64,7 +64,7 @@ class Debugger(object):
       bg * (1 - trans)).astype(np.uint8)
   
   def show_img(self, pause = False, imgId = 'default'):
-    # cv2.imshow('{}'.format(imgId), self.imgs[imgId])
+    cv2.imshow('{}'.format(imgId), self.imgs[imgId])
     if pause:
       cv2.waitKey()
   
@@ -206,11 +206,10 @@ class Debugger(object):
 
   def show_all_imgs(self, pause=False, Time=0):
     if 1:
-      # for i, v in self.imgs.items():
-      #   cv2.imshow('{}'.format(i), v)
+      for i, v in self.imgs.items():
+        cv2.imshow('{}'.format(i), v)
       if not self.with_3d:
-        # cv2.waitKey(0 if pause else 1)
-        pass
+        cv2.waitKey(0 if pause else 1)
       else:
         max_range = np.array([
           self.xmax-self.xmin, self.ymax-self.ymin, self.zmax-self.zmin]).max()
@@ -377,8 +376,8 @@ class Debugger(object):
             True,lc,2,lineType=cv2.LINE_AA)
         for e in [[0, 1]]:
           t = 4 if e == [0, 1] else 1
-          cv2.line(bird_view, (int(rect[e[0]][0]), int(rect[e[0]][1])),
-                  (int(rect[e[1]][0]), int(rect[e[1]][1])), lc, t,
+          cv2.line(bird_view, (rect[e[0]][0], rect[e[0]][1]),
+                  (rect[e[1]][0], rect[e[1]][1]), lc, t,
                   lineType=cv2.LINE_AA)
 
     self.imgs[img_id] = bird_view
@@ -408,8 +407,8 @@ class Debugger(object):
           # for e in [[0, 1], [1, 2], [2, 3], [3, 0]]:
           for e in [[0, 1]]:
             t = 4 if e == [0, 1] else 1
-            cv2.line(bird_view, (int(rect[e[0]][0]), int(rect[e[0]][1])),
-                    (int(rect[e[1]][0]), int(rect[e[1]][1])), lc, t,
+            cv2.line(bird_view, (rect[e[0]][0], rect[e[0]][1]),
+                    (rect[e[1]][0], rect[e[1]][1]), lc, t,
                     lineType=cv2.LINE_AA)
 
     self.imgs[img_id] = bird_view
