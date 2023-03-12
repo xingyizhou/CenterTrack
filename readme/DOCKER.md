@@ -30,4 +30,4 @@ python3 demo.py tracking,ddd --load_model ../models/nuScenes_3Dtracking.pth --da
 The DCNv2 is built from [MatthewHowe_DCNv2](https://github.com/MatthewHowe/DCNv2). Thanks @MatthewHowe for the contribution.
 Then you should be able to see the results.
 
-Go to ```/share``` to transfer data from the container and your root system.
+Go to ```/share``` to transfer data between the container and your root system.
