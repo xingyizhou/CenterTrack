@@ -26,7 +26,7 @@ After installing Anaconda:
 2. Install [COCOAPI](https://github.com/cocodataset/cocoapi):
 
     ~~~
-    pip install cython; pip install -U 'git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI'
+    pip install cython==0.29.33; pip install -U 'git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI'
     ~~~
 
 3. Clone this repo:
